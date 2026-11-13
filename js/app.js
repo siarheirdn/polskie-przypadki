@@ -238,7 +238,23 @@ function planHTML(where) {
   }).join('');
   return rev + `<div class="card plan"><div class="lbl">Co ćwiczyć</div>${body}</div>`;
 }
+// Ćwiczenie z drzewa: przypadek + liczba, słabsze rodzaje częściej
+function startCaseDrill(key, kind) {
+  const [ci, num] = key.split('|'), cells = stats[CK(kind)];
+  const ids = (num === 'sg' ? SG_G : PL_G).map(([g]) => ci + ':' + g).filter(id => !SKIP(id));
+  const w = ids.map(id => { const x = cells[id]; return x && x.n ? Math.pow((x.wrong + 1) / (x.n + 2), 2) : 0.15; });
+  const sum = w.reduce((a, b) => a + b, 0), used = new Set(), items = [];
+  for (let k = 0; k < 15; k++) {
+    let r = Math.random() * sum, j = 0; while (r > w[j] && j < w.length - 1) { r -= w[j]; j++; }
+    const it = pickItem(ids[j], used); used.add(ikey(it)); items.push(it);
+  }
+  const c = CASES[+ci];
+  session = sessionFromItems(items, 'focus', kind, `Ćwicz: ${c.ru}, ${num === 'sg' ? 'l. poj.' : 'l. mn.'}`);
+  tab = 'train'; document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'train'));
+  render(); window.scrollTo(0, 0);
+}
 function bindPlan(kind) {
+  document.querySelectorAll('[data-cdrill]').forEach(b => b.onclick = () => startCaseDrill(b.dataset.cdrill, kind));
   const rb = document.getElementById('revBtn'); if (rb) rb.onclick = () => startReview(kind);
   document.querySelectorAll('[data-drill]').forEach(b => b.onclick = () => startDrill(stats.plan.items[+b.dataset.drill], kind));
 }
@@ -767,6 +783,7 @@ function statsHTML() {
     <div class="lbl">Łącznie</div>
     <div>Odpowiedzi: ${total}, z błędem: ${total ? Math.round(wrong / total * 100) : 0}%. Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}.${dia ? ` Tylko w polskich znakach: ${dia}.` : ''}</div>
   </div>
+  ${caseTreeHTML(cells)}
   <div class="card">
     <div class="lbl">Błędy według pól</div>
     <table class="grid"><tr><th></th>${CASES.map(c => `<th>${c.short}</th>`).join('')}</tr>${rows}</table>
@@ -774,8 +791,6 @@ function statsHTML() {
   </div>
   ${analysisHTML(statsKind)}
   <div class="card"><div class="lbl">Najsłabsze pola</div>${weak.length ? `<ul class="list">${weak.map(x => `<li>${esc(cellName(x.c))} — ${x.s.wrong} z ${x.s.n}</li>`).join('')}</ul>` : '<div class="muted">Na razie za mało danych (potrzebne są co najmniej 2 odpowiedzi w polu).</div>'}</div>
-  <div class="card"><div class="lbl">Według przypadków</div><ul class="list">${caseTot.map(x => `<li>${esc(x.name)}: ${pct(x)}</li>`).join('')}</ul></div>
-  <div class="card"><div class="lbl">Według rodzaju i liczby</div><ul class="list">${grpTot.map(x => `<li>${esc(x.name)}: ${pct(x)}</li>`).join('')}</ul></div>
   ${historyHTML()}
   ${backupHTML()}
   <div class="card">
@@ -841,6 +856,40 @@ async function importBackup(file) {
   render();
 }
 
+// Przypadek → liczba → rodzaj: gdzie dokładnie są błędy
+const SG_G = [['mp', 'm.-os.'], ['ma', 'm.-zw.'], ['mi', 'm.-rz.'], ['f', 'ż.'], ['n', 'nij.']];
+const PL_G = [['pv', 'męskoosobowy'], ['pn', 'niemęskoosobowy']];
+function agg(cells, ids) { let n = 0, w = 0; ids.forEach(id => { const x = cells[id]; if (x) { n += x.n; w += x.wrong; } }); return { n, w, r: n ? w / n : 0 }; }
+function level(x) { return x.n < 3 ? 'few' : x.r >= 0.4 ? 'bad' : x.r >= 0.2 ? 'mid' : 'good'; }
+function pctTxt(x) { return x.n ? `${Math.round(x.r * 100)}%` : '—'; }
+function caseTreeHTML(cells) {
+  const rows = CASES.map((c, i) => {
+    const sgIds = SG_G.map(([g]) => i + ':' + g).filter(id => !SKIP(id)), plIds = PL_G.map(([g]) => i + ':' + g);
+    const all = agg(cells, [...sgIds, ...plIds]), sg = agg(cells, sgIds), pl = agg(cells, plIds);
+    const gens = (list) => list.filter(([g]) => !SKIP(i + ':' + g)).map(([g, name]) => {
+      const x = agg(cells, [i + ':' + g]);
+      return { name, x };
+    }).sort((a, b) => (b.x.n >= 3) - (a.x.n >= 3) || b.x.r - a.x.r);
+    return { c, i, all, sg, pl, sgG: gens(SG_G), plG: gens(PL_G) };
+  }).filter(r => r.all.n).sort((a, b) => (b.all.n >= 3) - (a.all.n >= 3) || b.all.r - a.all.r);
+  if (!rows.length) return '';
+  const chip = ({ name, x }) => `<span class="gchip ${level(x)}">${esc(name)} <b>${pctTxt(x)}</b><small>${x.w}/${x.n}</small></span>`;
+  const numRow = (label, x, gl, key) => x.n ? `<div class="nrow"><div class="nhead"><span>${label}</span><span class="nval ${level(x)}">${pctTxt(x)} błędów <small>${x.w} z ${x.n}</small></span></div><div class="gchips">${gl.filter(g => g.x.n).map(chip).join('')}</div>
+    ${x.w && x.r >= 0.2 ? `<button class="ghost cdrill" data-cdrill="${key}">Ćwicz: ${esc(label.toLowerCase())} (15 pytań)</button>` : ''}</div>` : '';
+  const worst = rows.find(r => r.all.n >= 3 && r.all.r >= 0.2);
+  let head = '<div class="muted">Za mało odpowiedzi, żeby wskazać słabe miejsca.</div>';
+  if (worst) {
+    const num = worst.sg.n >= 3 && worst.pl.n >= 3 ? (worst.sg.r > worst.pl.r + 0.1 ? 'w liczbie pojedynczej' : worst.pl.r > worst.sg.r + 0.1 ? 'w liczbie mnogiej' : 'w obu liczbach') : '';
+    const g = [...worst.sgG, ...worst.plG].filter(x => x.x.n >= 3).sort((a, b) => b.x.r - a.x.r)[0];
+    head = `<div class="tree-head">Najsłabszy: <b>${esc(worst.c.ru)}</b>${num ? ', ' + num : ''}${g && g.x.r >= 0.3 ? `, zwłaszcza ${esc(g.name)}` : ''}.</div>`;
+  } else if (rows.some(r => r.all.n >= 3)) head = '<div class="tree-head">Żaden przypadek nie odstaje — błędów poniżej 20%.</div>';
+  return `<div class="card"><div class="lbl">Przypadki od najsłabszego</div>${head}
+    ${rows.map((r, k) => `<details class="case ${level(r.all)}" ${k < 2 && r.all.n >= 3 && r.all.r >= 0.2 ? 'open' : ''}>
+      <summary><span class="cname">${esc(r.c.ru)}</span><span class="cbar"><span class="bar ${level(r.all) === 'bad' ? 'red' : level(r.all) === 'mid' ? 'amber' : 'green'}"><i style="width:${Math.max(3, Math.round(r.all.r * 100))}%"></i></span></span><span class="cval">${pctTxt(r.all)} <small>${r.all.w}/${r.all.n}</small></span></summary>
+      ${numRow('Liczba pojedyncza', r.sg, r.sgG, r.i + '|sg')}${numRow('Liczba mnoga', r.pl, r.plG, r.i + '|pl')}
+    </details>`).join('')}
+    <div class="legend">Odsetek błędów. Szare — mniej niż 3 odpowiedzi, za mało, żeby oceniać.</div></div>`;
+}
 const caseName2 = k => CASES.find(c => c.id === k[0]).ru + (k.endsWith('+') ? ' (l. mn.)' : '');
 function analysisHTML(kind) {
   const A = stats.an[kind];

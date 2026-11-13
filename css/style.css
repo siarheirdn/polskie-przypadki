@@ -204,3 +204,26 @@ table.grid tr:first-child th:first-child { width: 84px; }
 .plan-rev { border-left: 3px solid var(--pen); }
 .plan-rev.quiet { border-left-color: var(--green); }
 h2.sub { font: 600 19px/1.2 var(--serif); margin: 26px 0 10px; }
+
+/* Przypadek → liczba → rodzaj */
+.tree-head { font-size: 15px; margin-bottom: 8px; }
+details.case { border-top: 1px solid var(--line); }
+details.case summary { display: grid; grid-template-columns: 1fr 34% auto; gap: 10px; align-items: center; padding: 10px 0; cursor: pointer; list-style: none; }
+details.case summary::-webkit-details-marker { display: none; }
+details.case summary::before { content: '›'; position: absolute; margin-left: -14px; color: var(--muted); transition: transform .15s; }
+details.case summary { position: relative; padding-left: 14px; }
+details.case[open] summary::before { transform: rotate(90deg); }
+.cname { font: 600 16px/1.2 var(--serif); }
+.cval { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 76px; text-align: right; }
+.cval small, .nval small, .gchip small { font-weight: 400; color: var(--muted); margin-left: 4px; font-size: 12px; }
+details.case.few .cname, details.case.few .cval { color: var(--muted); }
+.nrow { padding: 2px 0 10px 14px; }
+.nhead { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px; }
+.nval { font-weight: 700; font-variant-numeric: tabular-nums; }
+.nval.bad, .gchip.bad b { color: var(--red); } .nval.mid, .gchip.mid b { color: var(--amber); } .nval.good, .gchip.good b { color: var(--green); } .nval.few { color: var(--muted); }
+.gchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.gchip { font-size: 13px; padding: 3px 8px; border-radius: 3px; border: 1px solid var(--line); background: var(--sheet); }
+.gchip.bad { background: var(--red-soft); border-color: transparent; }
+.gchip.few { color: var(--muted); border-style: dashed; }
+.gchip.few b { color: var(--muted); }
+.cdrill { margin-top: 8px; font-size: 14px; color: var(--pen); border-color: var(--pen); }
