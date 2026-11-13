@@ -96,6 +96,7 @@ const TRAPS = [
   [/opiekować się|zajmować się|zachwycać|częstować|dzielić/, ['L', 'A']],
 ];
 function trapCases(t) {
+  if (t.trap) return t.trap.filter(x => x !== t.c);
   for (const [re, cs] of TRAPS) if (re.test(t.hint)) return cs.filter(x => x !== t.c);
   return [];
 }
@@ -111,24 +112,33 @@ function adjFor(adj, g, c, plural, vir) {
 const NEAR_MISS_PL_I = { 'dziećmi': 'dzieciami', 'końmi': 'koniami', 'przyjaciółmi': 'przyjacielami' };
 function nearMissNoun(n, c, plural, cn) {
   const masc = n.g === 'mp' || n.g === 'ma' || n.g === 'mi';
-  const lemmaA = /a$/.test(n.sg[0]);            // kolega, kierowca — inne końcówki
-  let f = null;
+  const lemma = n.sg[0], lemmaA = /a$/.test(lemma);       // kolega, kierowca — inne końcówki
+  const out = [];
   if (!plural && masc && !lemmaA && c === 'G') {
-    if (/a$/.test(cn)) f = cn.slice(0, -1) + 'u';          // chleba → chlebu
-    else if (/u$/.test(cn)) f = cn.slice(0, -1) + 'a';     // sklepu → sklepa
+    if (/a$/.test(cn)) out.push(cn.slice(0, -1) + 'u');          // chleba → chlebu
+    else if (/u$/.test(cn)) out.push(cn.slice(0, -1) + 'a');     // sklepu → sklepa
   } else if (!plural && masc && !lemmaA && c === 'D') {
-    if (/owi$/.test(cn)) f = cn.slice(0, -3) + 'u';        // telefonowi → telefonu
-    else if (/u$/.test(cn)) f = cn.slice(0, -1) + 'owi';   // psu → psowi
-  } else if (!plural && c === 'A' && /ę$/.test(cn) && !/ę$/.test(n.sg[0])) {
-    f = cn.slice(0, -1) + 'u';                             // gruszkę → gruszku (ros. грушу), kolegę → kolegu
+    if (/owi$/.test(cn)) out.push(cn.slice(0, -3) + 'u');        // telefonowi → telefonu
+    else if (/u$/.test(cn)) out.push(cn.slice(0, -1) + 'owi');   // psu → psowi
+  } else if (!plural && c === 'A' && /ę$/.test(cn) && !/ę$/.test(lemma)) {
+    out.push(cn.slice(0, -1) + 'u');                             // gruszkę → gruszku (ros. грушу)
+  } else if (!plural && c === 'L' && (masc || n.g === 'n') && !lemmaA && /e$/.test(cn) && !/[ęe]$/.test(lemma)) {
+    const stem = n.g === 'n' ? lemma.replace(/o$/, '') : lemma;
+    if (!/ó[^aeiouyąęó]*$/.test(stem)) {                         // stół, samochód — tu nie
+      if (/[tdszn]$/.test(stem) && stem + 'ie' !== cn) out.push(stem + 'ie'); // lesie → lasie, studencie → studentie
+      out.push(stem + 'u');                                      // o studencie → o studentu
+    }
+  } else if (plural && c === 'D' && /om$/.test(cn)) {
+    out.push(cn.slice(0, -2) + 'am');                            // studentom → studentam (ros. -ам)
+  } else if (plural && n.g === 'mp' && (c === 'N' || c === 'A') && !/(ec|eń)$/.test(lemma)) {
+    const b = lemmaA ? lemma.slice(0, -1) : lemma;               // studenci → studenty, koledzy → kolegi
+    if (!/(rz|cz|sz|ż|l|j|ń|ć|ś|ź)$/.test(b)) out.push(b + (/[kg]$/.test(b) ? 'i' : 'y'));
   } else if (plural && masc && c === 'G' && /[yi]$/.test(cn) && !/ów$/.test(cn)) {
-    f = cn.slice(0, -1) + 'ów';                            // lekarzy → lekarzów, nauczycieli → nauczycielów
+    out.push(cn.slice(0, -1) + 'ów');                            // lekarzy → lekarzów
   } else if (plural && c === 'I' && NEAR_MISS_PL_I[cn]) {
-    f = NEAR_MISS_PL_I[cn];
+    out.push(NEAR_MISS_PL_I[cn]);
   }
-  if (!f || f === cn) return null;
-  // nie dawać tej samej formy co poprawna w liczbie mnogiej/pojedynczej, jeśli to i tak ta sama odpowiedź
-  return f;
+  return out.filter(f => f && f !== cn);
 }
 function distractors(t, n, adj, c, plural, ca, cn) {
   const vir = n.g === 'mp';
@@ -146,8 +156,7 @@ function distractors(t, n, adj, c, plural, ca, cn) {
   if (!plural) push([c, ...trap], false, other);   // pułapka rodzaju (kolega → młodej, kotka → młodego)
   push(['N', 'G', 'D', 'A', 'I', 'L'], plural); push(['N', 'G', 'D', 'A', 'I', 'L'], !plural);
   const A = [], N = [];
-  const fake = nearMissNoun(n, c, plural, cn);
-  if (fake) N.push(fake);
+  nearMissNoun(n, c, plural, cn).slice(0, 2).forEach(f => { if (!N.includes(f)) N.push(f); });
   const okA = x => x && x !== ca && !A.includes(x) && (x !== baseA || ca === baseA);
   const okN = x => x && x !== cn && !N.includes(x) && (x !== baseN || cn === baseN);
   for (const [a, nn] of pairs) {

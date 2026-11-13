@@ -99,9 +99,9 @@ const NOUNS = [
   ['zwierzę', 'n', 'zoo', 'zwierzę|zwierzęcia|zwierzęciu|zwierzę|zwierzęciem|zwierzęciu;zwierzęta|zwierząt|zwierzętom|zwierzęta|zwierzętami|zwierzętach', ['dziki', 'egzotyczny', 'duży']],
   // ---- miejsca
   ['sklep', 'mi', 'place', 'sklep|sklepu|sklepowi|sklep|sklepem|sklepie;sklepy|sklepów|sklepom|sklepy|sklepami|sklepach', ['mały', 'nowy', 'pobliski'], ['work', 'meet', 'view', 'like']],
-  ['park', 'mi', 'place', 'park|parku|parkowi|park|parkiem|parku;parki|parków|parkom|parki|parkami|parkach', ['duży', 'ładny', 'pobliski'], ['view', 'like', 'nice']],
-  ['ogród', 'mi', 'place', 'ogród|ogrodu|ogrodowi|ogród|ogrodem|ogrodzie;ogrody|ogrodów|ogrodom|ogrody|ogrodami|ogrodach', ['botaniczny', 'mały', 'piękny'], ['view', 'like', 'nice']],
-  ['las', 'mi', 'place', 'las|lasu|lasowi|las|lasem|lesie;lasy|lasów|lasom|lasy|lasami|lasach', ['duży', 'pobliski', 'ciemny'], ['view', 'like']],
+  ['park', 'mi', 'place', 'park|parku|parkowi|park|parkiem|parku;parki|parków|parkom|parki|parkami|parkach', ['duży', 'ładny', 'pobliski'], ['view', 'like', 'nice', 'through']],
+  ['ogród', 'mi', 'place', 'ogród|ogrodu|ogrodowi|ogród|ogrodem|ogrodzie;ogrody|ogrodów|ogrodom|ogrody|ogrodami|ogrodach', ['botaniczny', 'mały', 'piękny'], ['view', 'like', 'nice', 'through']],
+  ['las', 'mi', 'place', 'las|lasu|lasowi|las|lasem|lesie;lasy|lasów|lasom|lasy|lasami|lasach', ['duży', 'pobliski', 'ciemny'], ['view', 'like', 'through']],
   ['teatr', 'mi', 'place', 'teatr|teatru|teatrowi|teatr|teatrem|teatrze;teatry|teatrów|teatrom|teatry|teatrami|teatrach', ['stary', 'nowy', 'mały'], ['work', 'meet', 'view', 'like', 'nice']],
   ['szpital', 'mi', 'place', 'szpital|szpitala|szpitalowi|szpital|szpitalem|szpitalu;szpitale|szpitali|szpitalom|szpitale|szpitalami|szpitalach', ['nowy', 'pobliski', 'duży'], ['work', 'meet', 'view']],
   ['hotel', 'mi', 'place', 'hotel|hotelu|hotelowi|hotel|hotelem|hotelu;hotele|hoteli|hotelom|hotele|hotelami|hotelach', ['drogi', 'mały', 'nowy'], ['work', 'meet', 'view']],
@@ -109,7 +109,7 @@ const NOUNS = [
   ['kino', 'n', 'place', 'kino|kina|kinu|kino|kinem|kinie;kina|kin|kinom|kina|kinami|kinach', ['stary', 'mały', 'nowy'], ['work', 'meet', 'view', 'like', 'nice']],
   ['biuro', 'n', 'place', 'biuro|biura|biuru|biuro|biurem|biurze;biura|biur|biurom|biura|biurami|biurach', ['nowy', 'duży', 'mały'], ['work']],
   ['mieszkanie', 'n', 'place', 'mieszkanie|mieszkania|mieszkaniu|mieszkanie|mieszkaniem|mieszkaniu;mieszkania|mieszkań|mieszkaniom|mieszkania|mieszkaniami|mieszkaniach', ['nowy', 'duży', 'mały'], ['like']],
-  ['miasto', 'n', 'place', 'miasto|miasta|miastu|miasto|miastem|mieście;miasta|miast|miastom|miasta|miastami|miastach', ['duży', 'mały', 'stary'], ['view', 'like', 'city']],
+  ['miasto', 'n', 'place', 'miasto|miasta|miastu|miasto|miastem|mieście;miasta|miast|miastom|miasta|miastami|miastach', ['duży', 'mały', 'stary'], ['view', 'like', 'city', 'through']],
   ['szkoła', 'f', 'place', 'szkoła|szkoły|szkole|szkołę|szkołą|szkole;szkoły|szkół|szkołom|szkoły|szkołami|szkołach', ['nowy', 'pobliski', 'duży'], ['work', 'meet', 'view']],
   ['apteka', 'f', 'place', 'apteka|apteki|aptece|aptekę|apteką|aptece;apteki|aptek|aptekom|apteki|aptekami|aptekach', ['pobliski', 'nowy', 'mały'], ['work', 'meet']],
   ['biblioteka', 'f', 'place', 'biblioteka|biblioteki|bibliotece|bibliotekę|biblioteką|bibliotece;biblioteki|bibliotek|bibliotekom|biblioteki|bibliotekami|bibliotekach', ['miejski', 'stary', 'duży'], ['work', 'meet', 'view', 'like', 'nice']],
@@ -131,6 +131,20 @@ const NOUNS = [
   ['ciastko', 'n', 'food', 'ciastko|ciastka|ciastku|ciastko|ciastkiem|ciastku;ciastka|ciastek|ciastkom|ciastka|ciastkami|ciastkach', ['czekoladowy', 'domowy', 'maślany'], ['yum', 'share', 'count']],
   ['jajko', 'n', 'food', 'jajko|jajka|jajku|jajko|jajkiem|jajku;jajka|jajek|jajkom|jajka|jajkami|jajkach', ['świeży', 'gotowany'], ['salad', 'sandwich', 'dislike']],
   ['kiełbasa', 'f', 'food', 'kiełbasa|kiełbasy|kiełbasie|kiełbasę|kiełbasą|kiełbasie;kiełbasy|kiełbas|kiełbasom|kiełbasy|kiełbasami|kiełbasach', ['wiejski', 'domowy', 'polski'], ['piece', 'sandwich', 'share', 'dislike']],
+  // ---- meble (ruch czy miejsce: pod / na / za)
+  ['stół', 'mi', 'furniture', 'stół|stołu|stołowi|stół|stołem|stole;stoły|stołów|stołom|stoły|stołami|stołach', ['duży', 'drewniany', 'nowy'], ['under', 'onto']],
+  ['fotel', 'mi', 'furniture', 'fotel|fotela|fotelowi|fotel|fotelem|fotelu;fotele|foteli|fotelom|fotele|fotelami|fotelach', ['wygodny', 'stary', 'nowy'], ['under', 'onto', 'behind']],
+  ['łóżko', 'n', 'furniture', 'łóżko|łóżka|łóżku|łóżko|łóżkiem|łóżku;łóżka|łóżek|łóżkom|łóżka|łóżkami|łóżkach', ['wygodny', 'duży', 'nowy'], ['under', 'onto', 'behind']],
+  ['krzesło', 'n', 'furniture', 'krzesło|krzesła|krzesłu|krzesło|krzesłem|krześle;krzesła|krzeseł|krzesłom|krzesła|krzesłami|krzesłach', ['drewniany', 'stary', 'wygodny'], ['under', 'onto']],
+  ['biurko', 'n', 'furniture', 'biurko|biurka|biurku|biurko|biurkiem|biurku;biurka|biurek|biurkom|biurka|biurkami|biurkach', ['nowy', 'stary', 'drewniany'], ['under', 'onto', 'behind']],
+  ['szafa', 'f', 'furniture', 'szafa|szafy|szafie|szafę|szafą|szafie;szafy|szaf|szafom|szafy|szafami|szafach', ['duży', 'stary', 'drewniany'], ['onto', 'behind']],
+  ['kanapa', 'f', 'furniture', 'kanapa|kanapy|kanapie|kanapę|kanapą|kanapie;kanapy|kanap|kanapom|kanapy|kanapami|kanapach', ['wygodny', 'nowy', 'duży'], ['under', 'onto', 'behind']],
+  ['półka', 'f', 'furniture', 'półka|półki|półce|półkę|półką|półce;półki|półek|półkom|półki|półkami|półkach', ['górny', 'drewniany', 'nowy'], ['onto', 'wall']],
+  // ---- woda (nad / w / znad)
+  ['jezioro', 'n', 'water', 'jezioro|jeziora|jezioru|jezioro|jeziorem|jeziorze;jeziora|jezior|jeziorom|jeziora|jeziorami|jeziorach', ['górski', 'czysty', 'duży']],
+  ['rzeka', 'f', 'water', 'rzeka|rzeki|rzece|rzekę|rzeką|rzece;rzeki|rzek|rzekom|rzeki|rzekami|rzekach', ['górski', 'czysty', 'szeroki']],
+  ['staw', 'mi', 'water', 'staw|stawu|stawowi|staw|stawem|stawie;stawy|stawów|stawom|stawy|stawami|stawach', ['mały', 'czysty', 'spokojny']],
+  ['morze', 'n', 'water', 'morze|morza|morzu|morze|morzem|morzu;morza|mórz|morzom|morza|morzami|morzach', ['spokojny', 'czysty'], ['sea']],
 ].map(([lemma, g, cat, forms, adjs, tags, noPl]) => {
   const [sg, pl] = forms.split(';').map(s => s.split('|'));
   return { lemma, g, cat, sg, pl, adjs, tags: tags || [], noPl: !!noPl };
@@ -273,6 +287,24 @@ const TEMPLATES = [
   { cat: 'food', c: 'A', tag: 'piece', sg: 'Pokroiłem ___ na kawałki.', hint: 'pokroić co? — biernik.' },
   { cat: 'food', c: 'A', tag: 'bake', sg: 'Mama upiekła ___.', hint: 'upiec co? — biernik.' },
   { cat: 'food', c: 'L', tag: 'vit', sg: '{W} ___ jest dużo witamin.', hint: 'w (w czym?) — miejscownik.' },
+  // ---- ruch (dokąd? → biernik) czy miejsce (gdzie? → narzędnik / miejscownik)
+  { cat: 'furniture', c: 'N', notTag: 'wall', sg: 'W pokoju stoi ___.', pl: 'W pokoju stoją ___.', hint: 'Co stoi? — podmiot, mianownik.' },
+  { cat: 'furniture', c: 'G', sg: 'Szukam w sklepie ___.', hint: 'szukać czego? — dopełniacz.' },
+  { cat: 'furniture', c: 'A', tag: 'under', sgOnly: true, trap: ['I'], sg: 'Kot schował się pod ___.', hint: 'pod + biernik: dokąd? (ruch). Gdzie? byłoby: pod stołem (narzędnik).' },
+  { cat: 'furniture', c: 'I', tag: 'under', sgOnly: true, trap: ['A'], sg: 'Kot śpi pod ___.', hint: 'pod + narzędnik: gdzie? (miejsce). Dokąd? byłoby: pod stół (biernik).' },
+  { cat: 'furniture', c: 'A', tag: 'onto', sgOnly: true, trap: ['L'], sg: 'Kot wskoczył na ___.', hint: 'na + biernik: dokąd? (ruch). Gdzie? byłoby: na stole (miejscownik).' },
+  { cat: 'furniture', c: 'L', tag: 'onto', sgOnly: true, trap: ['A'], sg: 'Kot leży na ___.', hint: 'na + miejscownik: gdzie? (miejsce). Dokąd? byłoby: na stół (biernik).' },
+  { cat: 'furniture', c: 'A', tag: 'behind', sgOnly: true, trap: ['I'], sg: 'Długopis spadł za ___.', hint: 'za + biernik: dokąd? (ruch). Gdzie? byłoby: za szafą (narzędnik).' },
+  { cat: 'furniture', c: 'I', tag: 'behind', sgOnly: true, trap: ['A'], sg: 'Za ___ jest dużo kurzu.', hint: 'za + narzędnik: gdzie? (miejsce). Dokąd? byłoby: za szafę (biernik).' },
+  { cat: 'furniture', c: 'I', sg: 'Co się stało {z} ___?', hint: 'z czym? — narzędnik.' },
+  { cat: 'water', c: 'N', sgOnly: true, notTag: 'sea', sg: 'Niedaleko naszego domu jest ___.', hint: 'Co jest? — podmiot, mianownik.' },
+  { cat: 'water', c: 'A', sgOnly: true, trap: ['I'], sg: 'W sobotę jedziemy nad ___.', hint: 'nad + biernik: dokąd? (ruch). Gdzie? byłoby: nad jeziorem (narzędnik).' },
+  { cat: 'water', c: 'I', sgOnly: true, trap: ['A'], sg: 'Całe lato odpoczywaliśmy nad ___.', hint: 'nad + narzędnik: gdzie? (miejsce). Dokąd? byłoby: nad jezioro (biernik).' },
+  { cat: 'water', c: 'G', sgOnly: true, trap: ['I', 'A'], sg: 'Właśnie wróciliśmy znad ___.', hint: 'znad + dopełniacz: skąd?' },
+  { cat: 'water', c: 'L', sgOnly: true, trap: ['A'], sg: 'Wczoraj kąpaliśmy się {w} ___.', hint: 'w + miejscownik: gdzie?' },
+  { cat: 'water', c: 'A', sgOnly: true, trap: ['G'], sg: 'Na zdjęciu widać ___.', hint: 'widać co? — biernik.' },
+  { cat: 'water', c: 'L', sg: 'Przewodnik opowiadał o ___.', hint: 'o czym? — miejscownik.' },
+  { cat: 'place', c: 'A', tag: 'through', sgOnly: true, trap: ['G', 'L'], sg: 'Do pracy idę na skróty przez ___.', hint: 'przez + biernik.' },
 ];
 
 
