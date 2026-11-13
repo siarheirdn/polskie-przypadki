@@ -125,6 +125,124 @@ for (let c = 0; c < 6; c++) GROUPS.forEach(g => { const id = c + ':' + g.id; if 
 const NC = ALL_CELLS.length;
 const ROUNDS = [4, 5, 6, 7].map(r => r * NC);
 
+// ===================== Plan nauki: co powtarzać =====================
+const DAY = 86400000, STEPS = [1, 3, 7];
+const RULE_OF_TI = TEMPLATES.map(t => ruleLabel(t.hint));
+const CASE_OF_TI = TEMPLATES.map(t => t.c);
+let TRAP_ITEMS = null;
+function trapItems() {
+  if (TRAP_ITEMS) return TRAP_ITEMS;
+  TRAP_ITEMS = {};
+  POOL.forEach(p => { if (SKIP(p.cell)) return; const k = trapKind(NOUNS[p.ni], TEMPLATES[p.ti].c, p.plural); if (k) (TRAP_ITEMS[k] = TRAP_ITEMS[k] || []).push(p); });
+  return TRAP_ITEMS;
+}
+function computePlan(all) {
+  const rules = {}, traps = {}, conf = {}, wantN = {};
+  const add = (m, k, r) => { const x = (m[k] = m[k] || { n: 0, w: 0, last: null }); x.n++; if (!r.ok) { x.w++; x.last = r; } return x; };
+  all.forEach(r => {
+    if (r.rl) add(rules, r.rl, r);
+    if (r.tk) { const x = (traps[r.tk] = traps[r.tk] || { n: 0, w: 0, last: null }); x.n++; if (!r.no) { x.w++; x.last = r; } }
+    const [ci, g] = r.c.split(':'); const want = CASES[+ci].id + (g === 'pv' || g === 'pn' ? '+' : '');
+    wantN[want] = (wantN[want] || 0) + 1;
+    if (!r.ok && r.cc && r.et !== 'dia') { const k = want + '>' + r.cc; const x = (conf[k] = conf[k] || { w: 0, last: null, want, got: r.cc }); x.w++; x.last = r; }
+  });
+  const out = [];
+  Object.entries(rules).forEach(([k, x]) => { if (x.w >= 2 && x.w / x.n >= 0.3) out.push({ kind: 'rule', key: k, n: x.n, w: x.w, score: x.w * x.w / x.n, last: x.last }); });
+  Object.entries(traps).forEach(([k, x]) => { if (x.w >= 2 && x.w / x.n >= 0.3) out.push({ kind: 'trap', key: k, n: x.n, w: x.w, score: x.w * x.w / x.n * 1.1, last: x.last }); });
+  Object.values(conf).forEach(x => { const n = wantN[x.want] || 1; if (x.w >= 2 && x.w / n >= 0.15) out.push({ kind: 'conf', key: x.want + '>' + x.got, want: x.want, got: x.got, n, w: x.w, score: x.w * x.w / n * 0.9, last: x.last }); });
+  out.sort((a, b) => b.score - a.score);
+  const picked = [], seenWant = new Set();
+  for (const p of out) {
+    if (p.kind === 'conf') { if (seenWant.has(p.want)) continue; seenWant.add(p.want); }
+    picked.push(p); if (picked.length >= 3) break;
+  }
+  return { items: picked, enough: all.length >= 30 };
+}
+function computeReview(all) {
+  const m = {};
+  all.forEach(r => {
+    if (r.ti == null || SKIP(r.c)) return;
+    const k = r.ti + '|' + r.c, t = r.t || 0;
+    const x = m[k] || (m[k] = { ti: r.ti, cell: r.c, stage: 0, due: 0, active: false, ni: r.ni });
+    if (!r.ok) { x.active = true; x.stage = 0; x.due = t + DAY; x.ni = r.ni; x.last = r; }
+    else if (x.active && t >= x.due - 3 * 3600000) { x.stage++; if (x.stage >= STEPS.length) x.active = false; else x.due = t + STEPS[x.stage] * DAY; }
+  });
+  const now = Date.now(), act = Object.values(m).filter(x => x.active);
+  const due = act.filter(x => x.due <= now).sort((a, b) => a.due - b.due);
+  const later = act.filter(x => x.due > now).sort((a, b) => a.due - b.due);
+  return { due, later, next: later[0] ? later[0].due : null };
+}
+function caseLabel(k) { const c = CASES.find(x => x.id === k[0]); return c.ru + (k.endsWith('+') ? ' (l. mn.)' : ''); }
+function planText(p) {
+  if (p.kind === 'rule') {
+    const tis = TEMPLATES.map((t, i) => i).filter(i => RULE_OF_TI[i] === p.key);
+    const cs = [...new Set(tis.map(i => CASES[CI[CASE_OF_TI[i]]]))].map(c => `${c.ru} (${c.pl})`).join(', ');
+    return { title: p.key, desc: `Potrzebny przypadek: ${cs}.` };
+  }
+  if (p.kind === 'trap') return { title: TRAP_INFO[p.key].t, desc: TRAP_INFO[p.key].d };
+  const w = CASES.find(x => x.id === p.want[0]);
+  return { title: `${caseLabel(p.got)} zamiast: ${caseLabel(p.want)}`, desc: `Gdy zdanie wymaga przypadku ${w.ru} (${w.pl}), wybierasz ${caseLabel(p.got)}.` };
+}
+function mistakeHTML(r) {
+  if (!r || !r.s) return '';
+  const got = esc((r.ga || '') + ' ' + (r.gn || ''));
+  return `<div class="mist"><span class="muted">Twój błąd:</span> ${esc(r.s).replace('___', `<s>${got}</s> <b>${esc(r.rt || '')}</b>`)}</div>`;
+}
+function drillItems(p) {
+  if (p.kind === 'rule') {
+    let keys = [p.key];
+    const m = p.key.match(/^(pod|na|za|nad) \+/);                       // ruch i miejsce razem — dla kontrastu
+    if (m) keys = [...new Set(RULE_OF_TI.filter(l => l && l.startsWith(m[1] + ' +')))];
+    return POOL.filter(o => keys.includes(RULE_OF_TI[o.ti]) && !SKIP(o.cell));
+  }
+  if (p.kind === 'trap') return trapItems()[p.key] || [];
+  const ci = CI[p.want[0]], pl = p.want.endsWith('+');
+  return POOL.filter(o => !SKIP(o.cell) && CI[TEMPLATES[o.ti].c] === ci && o.plural === pl);
+}
+function startDrill(p, kind) {
+  const t = planText(p);
+  session = sessionFromItems(pickVaried(drillItems(p), 15), 'focus', kind, 'Ćwicz: ' + t.title);
+  tab = 'train'; document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'train'));
+  render(); window.scrollTo(0, 0);
+}
+function startReview(kind) {
+  const items = stats.review.due.slice(0, 30).map(x => {
+    const c = POOL.filter(o => o.ti === x.ti && o.cell === x.cell);
+    const other = c.filter(o => o.ni !== x.ni);
+    return rnd(other.length ? other : (c.length ? c : BY_CELL[x.cell]));
+  });
+  session = sessionFromItems(shuffle(items), 'review', kind, 'Powtórka błędów');
+  render(); window.scrollTo(0, 0);
+}
+function whenText(t) {
+  const d = Math.round((t - Date.now()) / DAY);
+  return d <= 0 ? 'dziś później' : d === 1 ? 'jutro' : `za ${d} ${plural(d, 'dzień', 'dni', 'dni')}`;
+}
+function planHTML(where) {
+  const P = stats.plan, R = stats.review;
+  const rev = R.due.length
+    ? `<div class="card plan-rev"><div class="lbl">Do powtórki dziś: ${R.due.length}</div>
+        <div class="muted">Pytania, w których pomyliłeś się wcześniej, z nowymi słowami. Błąd znika po trzech dobrych powtórkach (po 1, 3 i 7 dniach).</div>
+        <button class="big" id="revBtn">Powtórz ${pyt(Math.min(30, R.due.length))}</button></div>`
+    : (R.later.length ? `<div class="card plan-rev quiet"><div class="lbl">Na dziś wszystko powtórzone</div><div class="muted">W kolejce: ${R.later.length}. Następna powtórka ${whenText(R.next)}.</div></div>` : '');
+  let body;
+  if (!P.items.length) body = `<div class="muted">${P.enough ? 'Nie widać powtarzających się błędów. Tak trzymaj — albo przejdź etap 2 (wpisywanie).' : 'Plan pojawi się po około 30 odpowiedziach: wtedy będzie widać, które błędy się powtarzają.'}</div>`;
+  else body = P.items.map((p, i) => {
+    const t = planText(p);
+    return `<div class="prob">
+      <div class="ptop"><div class="ptitle">${esc(t.title)}</div><div class="pstat">${p.n - p.w} z ${p.n}</div></div>
+      <div class="pdesc">${esc(t.desc)}</div>
+      ${mistakeHTML(p.last)}
+      <button class="ghost drill" data-drill="${i}">Ćwicz to (15 pytań)</button>
+    </div>`;
+  }).join('');
+  return rev + `<div class="card plan"><div class="lbl">Co ćwiczyć</div>${body}</div>`;
+}
+function bindPlan(kind) {
+  const rb = document.getElementById('revBtn'); if (rb) rb.onclick = () => startReview(kind);
+  document.querySelectorAll('[data-drill]').forEach(b => b.onclick = () => startDrill(stats.plan.items[+b.dataset.drill], kind));
+}
+
 function emptyAn() { return { hist: {}, rules: {}, types: {}, conf: {}, errs: 0, untyped: 0 }; }
 // stan pola: mało danych / słabe / opanowane (ostatnie 5 odpowiedzi dobrze)
 function cellState(kind, c) {
@@ -146,6 +264,8 @@ async function backfill() {
       if (!qq || qq.ni == null) { r.rl = null; return; }
       const an = analyzeAnswer(qq, r.ga, r.gn, r.ao, r.no, r.d);
       r.rl = an.rl || null; if (an.et) r.et = an.et; if (an.cc) r.cc = an.cc;
+      if (qq.ti != null) r.ti = qq.ti;
+      r.ni = qq.ni; const tk = trapKind(NOUNS[qq.ni], CASES[qq.caseIdx].id, qq.plural); if (tk) r.tk = tk;
       changed = true;
     });
   }
@@ -153,7 +273,7 @@ async function backfill() {
 }
 
 function recompute() {
-  const st = { cells: {}, tcells: {}, log: [], tlog: [], an: { choice: emptyAn(), type: emptyAn() } };
+  const st = { cells: {}, tcells: {}, log: [], tlog: [], all: [], an: { choice: emptyAn(), type: emptyAn() } };
   const resetAt = meta.resetAt || 0;
   const cs = (k, c) => st[k][c] || (st[k][c] = { n: 0, wrong: 0, adjWrong: 0, nounWrong: 0 });
   legacies.forEach(L => {
@@ -169,6 +289,7 @@ function recompute() {
       if ((r.t || 0) <= resetAt || SKIP(r.c)) return;
       const x = cs(k, r.c); x.n++; if (!r.ok) x.wrong++; if (!r.ao) x.adjWrong++; if (!r.no) x.nounWrong++;
       if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, dia: r.d || undefined, t: r.t });
+      st.all.push(r);
       const A = st.an[p.kind === 'type' ? 'type' : 'choice'];
       (A.hist[r.c] = A.hist[r.c] || []).push([r.t || 0, !!r.ok]);
       if (r.rl) { const x = (A.rules[r.rl] = A.rules[r.rl] || { n: 0, w: 0 }); x.n++; if (!r.ok) x.w++; }
@@ -184,6 +305,9 @@ function recompute() {
   });
   ['choice', 'type'].forEach(k => Object.values(st.an[k].hist).forEach(h => h.sort((a, b) => a[0] - b[0])));
   st.log.sort((a, b) => (a.t || 0) - (b.t || 0)); st.tlog.sort((a, b) => (a.t || 0) - (b.t || 0));
+  st.all.sort((a, b) => (a.t || 0) - (b.t || 0));
+  st.plan = computePlan(st.all);
+  st.review = computeReview(st.all);
   stats = st;
 }
 
@@ -267,20 +391,34 @@ function buildSession(mode, count, kind) {
     }
   }
   const used = new Set();
-  const questions = cells.map(cell => {
+  const items = cells.map(cell => {
     const item = pickItem(cell, used);
     used.add(item.ti + '|' + item.ni + '|' + item.plural);
-    const q = makeQuestion(item);
-    return { cell: q.cell, caseIdx: q.caseIdx, group: q.group, sentence: q.sentence, base: q.base, plural: q.plural,
-      adjAnswer: q.adjAnswer, nounAnswer: q.nounAnswer, adjOptions: q.adjOptions, nounOptions: q.nounOptions, hint: q.hint,
-      ti: q.ti, ni: q.ni, ex: exampleFor(q, BY_CELL[cell]) };
+    return item;
   });
+  return sessionFromItems(items, mode, kind);
+}
+function shapeQuestion(item) {
+  const q = makeQuestion(item);
+  return { cell: q.cell, caseIdx: q.caseIdx, group: q.group, sentence: q.sentence, base: q.base, plural: q.plural,
+    adjAnswer: q.adjAnswer, nounAnswer: q.nounAnswer, adjOptions: q.adjOptions, nounOptions: q.nounOptions, hint: q.hint,
+    ti: q.ti, ni: q.ni, ex: exampleFor(q, BY_CELL[q.cell]) };
+}
+function sessionFromItems(items, mode, kind, title) {
+  const questions = items.map(shapeQuestion), count = questions.length;
   let id; do { id = newId(); } while (progress[id]);
   const now = Date.now();
-  const s = { id, mode, kind, count, questions, i: 0, results: [], byQ: {}, front: 0, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
-  Store.write('sessions/' + id, { id, mode, kind, count, createdAt: now, questions });
+  const s = { id, mode, kind, count, title, questions, i: 0, results: [], byQ: {}, front: 0, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
+  Store.write('sessions/' + id, { id, mode, kind, count, title: title || null, createdAt: now, questions });
   saveProgress(s);
   return s;
+}
+// wybór różnorodnych pozycji z listy: różne słowa i zdania, potem dopiero powtórki
+function pickVaried(list, count) {
+  const out = [], seen = new Set(), pool = shuffle([...list]);
+  for (const it of pool) { const k = it.ni + '|' + it.ti; if (seen.has(k)) continue; seen.add(k); out.push(it); if (out.length >= count) return out; }
+  for (const it of pool) { if (out.length >= count) break; if (!out.includes(it)) out.push(it); }
+  return shuffle(out);
 }
 
 function firstUnanswered(s) { for (let k = 0; k < s.count; k++) if (!s.byQ[k]) return k; return -1; }
@@ -296,7 +434,7 @@ function exampleOf(q) {
 
 function progressDoc(s) {
   return {
-    id: s.id, mode: s.mode, kind: s.kind, count: s.count, createdAt: s.createdAt, updatedAt: Date.now(),
+    id: s.id, mode: s.mode, kind: s.kind, count: s.count, title: s.title || null, createdAt: s.createdAt, updatedAt: Date.now(),
     done: s.results.length >= s.count, r: s.results.map(x => x.raw),
   };
 }
@@ -315,7 +453,7 @@ async function resumeSession(id) {
   progress[id] = p;
   const results = (p.r || []).map((raw, k) => ({ cell: raw.c, ok: raw.ok, adjOk: raw.ao, nounOk: raw.no, diaOnly: !!raw.d, gotA: raw.ga, gotN: raw.gn, qi: raw.qi != null ? raw.qi : k, raw }));
   const byQ = {}; results.forEach(r => byQ[r.qi] = r);
-  session = { id, mode: q.mode, kind: q.kind, count: q.count, questions: q.questions, i: 0, results, byQ,
+  session = { id, mode: q.mode, kind: q.kind, count: q.count, title: q.title || null, questions: q.questions, i: 0, results, byQ,
     createdAt: q.createdAt, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
   const first = firstUnanswered(session);
   if (first < 0) session.finished = true; else session.i = first;
@@ -356,7 +494,7 @@ function unfinishedHTML() {
     <div class="lbl">Niedokończone sesje (${list.length})</div>
     <div class="sessrow">
       <select id="sessSel" class="sesssel">
-        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${kindName(p.kind)} · ${(p.r || []).length} z ${p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
+        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${esc(p.title || kindName(p.kind))} · ${(p.r || []).length} z ${p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
       </select>
       <button class="ibtn go" id="contBtn" title="Kontynuuj" aria-label="Kontynuuj">
         <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
@@ -378,6 +516,8 @@ function startHTML() {
     : 'Wpisujesz obie formy samodzielnie. Wielkość liter nie ma znaczenia, polskie znaki (ą, ę, ł, ó, ś, ż…) — mają.';
   return `
   ${unfinishedHTML()}
+  ${planHTML('start')}
+  <h2 class="sub">Nowa sesja</h2>
   ${stageSwitch('stageSw', stage)}
   <div class="muted" style="margin:-4px 0 12px">${descr}</div>
   <div class="card">
@@ -401,6 +541,7 @@ function bindSeg(id, set) {
 }
 function bindStart() {
   bindSeg('stageSw', k => stage = k);
+  bindPlan(stage);
   document.getElementById('startTest').onclick = () => {
     const n = +document.querySelector('input[name=cnt]:checked').value;
     session = buildSession('test', n, stage); render();
@@ -526,6 +667,8 @@ function bindQuestion() {
     const raw = { qi: s.i, c: q.cell, ok, ao: adjOk, no: nounOk, ga: gotA, gn: gotN, t: Date.now() };
     if (diaOnly) raw.d = true;
     { const an = analyzeAnswer(q, gotA, gotN, adjOk, nounOk, diaOnly); Object.keys(an).forEach(k => { if (an[k] != null) raw[k] = an[k]; }); }
+    if (q.ti != null) raw.ti = q.ti;
+    if (q.ni != null) { raw.ni = q.ni; const tk = trapKind(NOUNS[q.ni], CASES[q.caseIdx].id, q.plural); if (tk) raw.tk = tk; }
     if (!ok) { raw.s = q.sentence; raw.b = q.base + (q.plural ? ' → l. mn.' : ' → l. poj.'); raw.rt = q.adjAnswer + ' ' + q.nounAnswer; }
     const r = { qi: s.i, cell: q.cell, ok, adjOk, nounOk, diaOnly, gotA, gotN, raw };
     s.results.push(r); s.byQ[s.i] = r;
@@ -562,7 +705,7 @@ function finishHTML() {
     ${finished ? '' : `<div style="margin-top:8px">Odpowiedziano na ${r.length} z ${s.count}. Postęp jest zapisany — sesję <b class="sid">${esc(s.id)}</b> możesz dokończyć później z listy na ekranie startowym.</div>
       <button class="big" id="resume">Kontynuuj teraz</button>`}
   </div>
-  ${finished && s.kind === 'choice' ? `
+  ${finished && s.kind === 'choice' && (s.mode === 'test' || s.mode === 'weak') ? `
   <div class="card">
     <div class="lbl">Dalej: etap 2</div>
     <div class="muted">Te same pola, nowe zdania, ale obie formy trzeba wpisać samodzielnie.</div>
@@ -594,7 +737,7 @@ function historyHTML() {
   if (!list.length) return '';
   return `<div class="card"><div class="lbl">Historia sesji</div>${list.map(p => {
     const r = p.r || [], ok = r.filter(x => x.ok).length;
-    return `<div class="sess"><div><b class="sid">${esc(p.id)}</b> · ${kindName(p.kind)}<br><span class="muted">${fmtDate(p.updatedAt)}</span></div><div><b>${ok} z ${r.length}</b> <span class="muted">(${r.length ? Math.round(ok / r.length * 100) : 0}%)</span></div></div>`;
+    return `<div class="sess"><div><b class="sid">${esc(p.id)}</b> · ${esc(p.title || kindName(p.kind))}<br><span class="muted">${fmtDate(p.updatedAt)}</span></div><div><b>${ok} z ${r.length}</b> <span class="muted">(${r.length ? Math.round(ok / r.length * 100) : 0}%)</span></div></div>`;
   }).join('')}</div>`;
 }
 function statsHTML() {
@@ -618,6 +761,8 @@ function statsHTML() {
   const dia = statsKind === 'type' ? stats.tlog.filter(e => e.dia).length : 0;
   return `
   ${stageSwitch('statSw', statsKind)}
+  ${planHTML('stats')}
+  <h2 class="sub">Szczegóły</h2>
   <div class="card">
     <div class="lbl">Łącznie</div>
     <div>Odpowiedzi: ${total}, z błędem: ${total ? Math.round(wrong / total * 100) : 0}%. Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}.${dia ? ` Tylko w polskich znakach: ${dia}.` : ''}</div>
@@ -742,6 +887,7 @@ function exportText() {
 }
 function bindStats() {
   bindSeg('statSw', k => statsKind = k);
+  bindPlan(statsKind);
   const bd = document.getElementById('bkDown'); if (bd) bd.onclick = downloadBackup;
   const bu = document.getElementById('bkUp'); if (bu) bu.onchange = () => { if (bu.files && bu.files[0]) importBackup(bu.files[0]); };
   document.getElementById('copy').onclick = async () => {

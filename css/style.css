@@ -189,3 +189,18 @@ table.rules td.num2 { white-space: nowrap; text-align: right; padding: 0 10px; c
 table.rules td.pbar { width: 32%; }
 table.rules tr.ok td:first-child { color: var(--muted); }
 table.grid tr:first-child th:first-child { width: 84px; }
+
+/* Plan nauki */
+.plan .prob { padding: 14px 0; border-top: 1px solid var(--line); }
+.plan .prob:first-of-type { border-top: 0; padding-top: 4px; }
+.ptop { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.ptitle { font: 600 17px/1.35 var(--serif); }
+.pstat { font-size: 13.5px; color: var(--red); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pdesc { font-size: 14.5px; margin: 4px 0 6px; }
+.mist { font: 400 15px/1.5 var(--serif); margin: 6px 0 10px; }
+.mist s { color: var(--red); }
+.mist b { color: var(--green); }
+.drill { width: 100%; font-weight: 700; color: var(--pen); border-color: var(--pen); }
+.plan-rev { border-left: 3px solid var(--pen); }
+.plan-rev.quiet { border-left-color: var(--green); }
+h2.sub { font: 600 19px/1.2 var(--serif); margin: 26px 0 10px; }

@@ -262,3 +262,26 @@ function analyzeAnswer(q, gotA, gotN, adjOk, nounOk, diaOnly) {
   if (other.length) { const same = other.filter(([, pl]) => pl === wantPl); out.cc = tag(same[0] || other[0]); }
   return out;
 }
+
+// ===== Pułapki końcówek: do jakiej grupy należy pytanie =====
+const TRAP_INFO = {
+  'a-u': { t: 'Dopełniacz l. poj.: -a czy -u', d: 'Rodzaj męski: chleba, sera, klucza, portfela, ale telefonu, sklepu, lasu. Trzeba zapamiętać razem ze słowem.' },
+  'owi-u': { t: 'Celownik l. poj.: -owi czy -u', d: 'Zwykle -owi (lekarzowi, telefonowi). Krótkie słowa: psu, kotu, chłopcu.' },
+  'e-u': { t: 'Biernik rodzaju żeńskiego: -ę, nie -u', d: 'gruszkę, mapę, kolegę. Po rosyjsku „грушу”, po polsku zawsze -ę.' },
+  'ms': { t: 'Miejscownik: -e z wymianą albo -u', d: 'w lesie, o studencie, w mieście, o sąsiedzie. Po k, g, ch i miękkich: -u (o lekarzu, w parku).' },
+  'om-am': { t: 'Celownik l. mn.: -om, nie -am', d: 'studentom, kolegom, książkom. Po rosyjsku -ам, po polsku -om.' },
+  'vir': { t: 'Męskoosobowa liczba mnoga', d: 'studenci, sąsiedzi, pracownicy, koledzy — nie studenty, pracowniki. W bierniku = dopełniacz: widzę studentów.' },
+  'ow': { t: 'Dopełniacz l. mn.: -ów czy -y / -i', d: 'Po miękkich -y / -i: lekarzy, nauczycieli, kluczy. Nie: lekarzów.' },
+  'mi': { t: 'Narzędnik l. mn.: wyjątki na -mi', d: 'dziećmi, końmi, przyjaciółmi.' },
+};
+function trapKind(n, c, plural) {
+  const cn = (plural ? n.pl : n.sg)[CI[c]];
+  if (!nearMissNoun(n, c, plural, cn).length) return null;
+  const masc = n.g === 'mp' || n.g === 'ma' || n.g === 'mi';
+  if (!plural) return { G: 'a-u', D: 'owi-u', A: 'e-u', L: 'ms' }[c] || null;
+  if (c === 'D') return 'om-am';
+  if (n.g === 'mp' && (c === 'N' || c === 'A')) return 'vir';
+  if (masc && c === 'G') return 'ow';
+  if (c === 'I') return 'mi';
+  return null;
+}
