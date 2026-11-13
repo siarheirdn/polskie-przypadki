@@ -482,13 +482,14 @@ async function resumeSession(id) {
 // ===================== Рендер =====================
 function render() {
   const v = document.getElementById('view');
+  const hz = document.getElementById('hfsz'); if (hz) { hz.innerHTML = fszHTML(); }
   document.body.classList.remove('focus');
   if (!loaded) { v.innerHTML = '<div class="card muted">Wczytywanie…</div>'; return; }
-  if (tab === 'stats') { v.innerHTML = statsHTML() + footer(); bindStats(); return; }
-  if (!session) { v.innerHTML = startHTML() + footer(); bindStart(); return; }
-  if (session.finished || session.paused) { v.innerHTML = finishHTML() + footer(); bindFinish(); return; }
+  if (tab === 'stats') { v.innerHTML = statsHTML() + footer(); bindStats(); bindFsz(); return; }
+  if (!session) { v.innerHTML = startHTML() + footer(); bindStart(); bindFsz(); return; }
+  if (session.finished || session.paused) { v.innerHTML = finishHTML() + footer(); bindFinish(); bindFsz(); return; }
   document.body.classList.add('focus');
-  v.innerHTML = questionHTML() + footer(); bindQuestion();
+  v.innerHTML = questionHTML() + footer(); bindQuestion(); bindFsz();
 }
 function footer() {
   const sid = session && !session.finished && !session.paused && tab === 'train' ? `Sesja <span class="sid">${esc(session.id)}</span>. ` : '';
@@ -590,6 +591,22 @@ const ICON = {
   okc: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   badc: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round"/></svg>',
 };
+// ---- Rozmiar tekstu (zapamiętany w przeglądarce)
+const ZOOMS = [0.85, 0.92, 1, 1.08, 1.16, 1.25, 1.35];
+let zoomIdx = 2;
+try { const z = +localStorage.getItem('pp-zoom'); const i = ZOOMS.indexOf(z); if (i >= 0) zoomIdx = i; } catch (e) {}
+function applyZoom() { document.documentElement.style.setProperty('--z', ZOOMS[zoomIdx]); }
+applyZoom();
+function fszHTML() {
+  return `<span class="fsz" role="group" aria-label="Rozmiar tekstu"><button data-fz="-1" title="Mniejszy tekst" aria-label="Mniejszy tekst" ${zoomIdx === 0 ? 'disabled' : ''}>A−</button><button class="big-a" data-fz="1" title="Większy tekst" aria-label="Większy tekst" ${zoomIdx === ZOOMS.length - 1 ? 'disabled' : ''}>A+</button></span>`;
+}
+function bindFsz() {
+  document.querySelectorAll('[data-fz]').forEach(b => b.onclick = () => {
+    zoomIdx = Math.max(0, Math.min(ZOOMS.length - 1, zoomIdx + +b.dataset.fz));
+    try { localStorage.setItem('pp-zoom', ZOOMS[zoomIdx]); } catch (e) {}
+    applyZoom(); render();
+  });
+}
 const NUM_TXT = pl => pl ? 'liczba mnoga' : 'liczba pojedyncza';
 function verdictText(q, res) {
   const c = CASES[q.caseIdx], g = groupName(q.group).replace(/^l\. (poj|mn)\., /, '');
@@ -604,7 +621,7 @@ function verdictText(q, res) {
     const tk = res.raw.tk && TRAP_INFO[res.raw.tk];
     return { head: 'Takiej formy nie ma.', line: tk ? tk.d : `${where}: rzeczownik ${R.noun}.` };
   }
-  if (!res.adjOk && res.nounOk) return { head: 'Błędny przymiotnik.', line: `To ${where}, dlatego przymiotnik ma formę ${q.adjAnswer}. Końcówka: ${R.adj}.` };
+  if (!res.adjOk && res.nounOk) return { head: 'Błędny przymiotnik.', line: `To ${where}, dlatego przymiotnik ma formę ${q.adjAnswer}. Końcówka: ${R.adj.replace(/-/g, '\u2011')}.` };
   if (res.adjOk && !res.nounOk) return { head: 'Błędny rzeczownik.', line: `To ${where}, dlatego rzeczownik ma formę ${q.nounAnswer}.` };
   return { head: 'Oba słowa są błędne.', line: `${q.hint} To ${where}.` };
 }
@@ -644,6 +661,7 @@ function questionHTML() {
     <div class="tcenter"><div class="tpos">Pytanie ${s.i + 1} z ${s.count}</div>
       <div class="progress"><div style="width:${Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
     <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
+    ${fszHTML()}
   </div>
   <div class="sent">${sentence}</div>
   ${body}
