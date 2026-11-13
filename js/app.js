@@ -125,8 +125,35 @@ for (let c = 0; c < 6; c++) GROUPS.forEach(g => { const id = c + ':' + g.id; if 
 const NC = ALL_CELLS.length;
 const ROUNDS = [4, 5, 6, 7].map(r => r * NC);
 
+function emptyAn() { return { hist: {}, rules: {}, types: {}, conf: {}, errs: 0, untyped: 0 }; }
+// stan pola: mało danych / słabe / opanowane (ostatnie 5 odpowiedzi dobrze)
+function cellState(kind, c) {
+  const h = (stats.an && stats.an[kind].hist[c]) || [];
+  if (h.length < 3) return 'few';
+  if (h.length >= 5 && h.slice(-5).every(x => x[1])) return 'done';
+  return 'open';
+}
+// uzupełnienie analizy dla starszych odpowiedzi (z zapisanych pytań sesji)
+async function backfill() {
+  let changed = false;
+  for (const p of Object.values(progress)) {
+    if (!(p.r || []).some(r => r.rl === undefined)) continue;
+    let q = null; try { q = await Store.getDoc('sessions/' + p.id); } catch (e) {}
+    if (!q || !q.questions) continue;
+    p.r.forEach((r, k) => {
+      if (r.rl !== undefined) return;
+      const qq = q.questions[r.qi != null ? r.qi : k];
+      if (!qq || qq.ni == null) { r.rl = null; return; }
+      const an = analyzeAnswer(qq, r.ga, r.gn, r.ao, r.no, r.d);
+      r.rl = an.rl || null; if (an.et) r.et = an.et; if (an.cc) r.cc = an.cc;
+      changed = true;
+    });
+  }
+  if (changed) { recompute(); if (tab === 'stats') render(); }
+}
+
 function recompute() {
-  const st = { cells: {}, tcells: {}, log: [], tlog: [] };
+  const st = { cells: {}, tcells: {}, log: [], tlog: [], an: { choice: emptyAn(), type: emptyAn() } };
   const resetAt = meta.resetAt || 0;
   const cs = (k, c) => st[k][c] || (st[k][c] = { n: 0, wrong: 0, adjWrong: 0, nounWrong: 0 });
   legacies.forEach(L => {
@@ -142,8 +169,20 @@ function recompute() {
       if ((r.t || 0) <= resetAt || SKIP(r.c)) return;
       const x = cs(k, r.c); x.n++; if (!r.ok) x.wrong++; if (!r.ao) x.adjWrong++; if (!r.no) x.nounWrong++;
       if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, dia: r.d || undefined, t: r.t });
+      const A = st.an[p.kind === 'type' ? 'type' : 'choice'];
+      (A.hist[r.c] = A.hist[r.c] || []).push([r.t || 0, !!r.ok]);
+      if (r.rl) { const x = (A.rules[r.rl] = A.rules[r.rl] || { n: 0, w: 0 }); x.n++; if (!r.ok) x.w++; }
+      if (!r.ok) {
+        A.errs++;
+        if (r.et) A.types[r.et] = (A.types[r.et] || 0) + 1; else A.untyped++;
+        if (r.cc) {
+          const [ci, g] = r.c.split(':'); const want = CASES[+ci].id + (g === 'pv' || g === 'pn' ? '+' : '');
+          const m = (A.conf[want] = A.conf[want] || { n: 0 }); m.n++; m[r.cc] = (m[r.cc] || 0) + 1;
+        }
+      }
     });
   });
+  ['choice', 'type'].forEach(k => Object.values(st.an[k].hist).forEach(h => h.sort((a, b) => a[0] - b[0])));
   st.log.sort((a, b) => (a.t || 0) - (b.t || 0)); st.tlog.sort((a, b) => (a.t || 0) - (b.t || 0));
   stats = st;
 }
@@ -215,7 +254,7 @@ function buildSession(mode, count, kind) {
     const w = ALL_CELLS.map(c => {
       let n = 0, wr = 0;
       [CK(kind), ...(useBoth ? ['cells'] : [])].forEach(k => { const s = stats[k][c]; if (s) { n += s.n; wr += s.wrong; } });
-      return Math.pow((wr + 1) / (n + 2), 2);
+      return Math.pow((wr + 1) / (n + 2), 2) * (cellState(kind, c) === 'done' ? 0.15 : 1);
     });
     const sum = w.reduce((a, b) => a + b, 0);
     for (let k = 0; k < count; k++) {
@@ -486,6 +525,7 @@ function bindQuestion() {
     const ok = adjOk && nounOk;
     const raw = { qi: s.i, c: q.cell, ok, ao: adjOk, no: nounOk, ga: gotA, gn: gotN, t: Date.now() };
     if (diaOnly) raw.d = true;
+    { const an = analyzeAnswer(q, gotA, gotN, adjOk, nounOk, diaOnly); Object.keys(an).forEach(k => { if (an[k] != null) raw[k] = an[k]; }); }
     if (!ok) { raw.s = q.sentence; raw.b = q.base + (q.plural ? ' → l. mn.' : ' → l. poj.'); raw.rt = q.adjAnswer + ' ' + q.nounAnswer; }
     const r = { qi: s.i, cell: q.cell, ok, adjOk, nounOk, diaOnly, gotA, gotN, raw };
     s.results.push(r); s.byQ[s.i] = r;
@@ -563,8 +603,10 @@ function statsHTML() {
   const wrong = Object.values(cells).reduce((a, s) => a + s.wrong, 0);
   const rows = GROUPS.map(g => `<tr><th class="r">${g.short}</th>${CASES.map((c, i) => {
     if (SKIP(i + ':' + g.id)) return '<td style="background:transparent"></td>';
-    const s = cells[i + ':' + g.id]; const n = s ? s.n : 0, w = s ? s.wrong : 0;
-    return `<td style="background:${color(n ? w / n : 0, n)}">${n ? Math.round(w / n * 100) + '%' : '—'}<small>${n ? w + '/' + n : ''}</small></td>`;
+    const id = i + ':' + g.id, s = cells[id]; const n = s ? s.n : 0, w = s ? s.wrong : 0, stt = cellState(statsKind, id);
+    if (stt === 'done') return `<td class="c-done" title="Opanowane: ostatnie 5 odpowiedzi dobrze">✓<small>${w}/${n}</small></td>`;
+    if (stt === 'few') return `<td class="c-few" title="Za mało odpowiedzi">${n ? n + '×' : '—'}</td>`;
+    return `<td style="background:${color(w / n, n)}">${Math.round(w / n * 100)}%<small>${w}/${n}</small></td>`;
   }).join('')}</tr>`).join('');
   const caseTot = CASES.map((c, i) => { let n = 0, w = 0; GROUPS.forEach(g => { const s = cells[i + ':' + g.id]; if (s) { n += s.n; w += s.wrong; } }); return { name: c.ru, n, w }; });
   const grpTot = GROUPS.map(g => { let n = 0, w = 0; CASES.forEach((c, i) => { const s = cells[i + ':' + g.id]; if (s) { n += s.n; w += s.wrong; } }); return { name: g.ru, n, w }; });
@@ -583,8 +625,9 @@ function statsHTML() {
   <div class="card">
     <div class="lbl">Błędy według pól</div>
     <table class="grid"><tr><th></th>${CASES.map(c => `<th>${c.short}</th>`).join('')}</tr>${rows}</table>
-    <div class="legend">W polu — odsetek odpowiedzi z błędem oraz „błędy / odpowiedzi”. Zielony — dobrze, czerwony — słaby punkt.</div>
+    <div class="legend"><span class="lg c-done">✓</span> opanowane: ostatnie 5 odpowiedzi dobrze · <span class="lg c-few">2×</span> za mało odpowiedzi (mniej niż 3) · w pozostałych polach odsetek błędów i „błędy / odpowiedzi”.</div>
   </div>
+  ${analysisHTML(statsKind)}
   <div class="card"><div class="lbl">Najsłabsze pola</div>${weak.length ? `<ul class="list">${weak.map(x => `<li>${esc(cellName(x.c))} — ${x.s.wrong} z ${x.s.n}</li>`).join('')}</ul>` : '<div class="muted">Na razie za mało danych (potrzebne są co najmniej 2 odpowiedzi w polu).</div>'}</div>
   <div class="card"><div class="lbl">Według przypadków</div><ul class="list">${caseTot.map(x => `<li>${esc(x.name)}: ${pct(x)}</li>`).join('')}</ul></div>
   <div class="card"><div class="lbl">Według rodzaju i liczby</div><ul class="list">${grpTot.map(x => `<li>${esc(x.name)}: ${pct(x)}</li>`).join('')}</ul></div>
@@ -653,12 +696,42 @@ async function importBackup(file) {
   render();
 }
 
+const caseName2 = k => CASES.find(c => c.id === k[0]).ru + (k.endsWith('+') ? ' (l. mn.)' : '');
+function analysisHTML(kind) {
+  const A = stats.an[kind];
+  if (!A || !A.errs) return '';
+  const typed = Object.entries(A.types).sort((a, b) => b[1] - a[1]);
+  const tot = typed.reduce((a, x) => a + x[1], 0);
+  const bar = (v, max, cls) => `<span class="bar ${cls || ''}"><i style="width:${Math.max(4, Math.round(v / max * 100))}%"></i></span>`;
+  const types = typed.length ? `<div class="card"><div class="lbl">Rodzaje błędów</div>
+    <div class="bars">${typed.map(([k, v]) => `<div class="brow"><div class="btxt">${esc(ERR_TYPES[k] || k)}</div><div class="bval">${bar(v, typed[0][1], 'red')}<b>${v}</b><span class="muted">${Math.round(v / tot * 100)}%</span></div></div>`).join('')}</div>
+    ${A.untyped ? `<div class="legend">Bez opisu: ${A.untyped} (starsze odpowiedzi).</div>` : ''}</div>` : '';
+  const conf = Object.entries(A.conf).sort((a, b) => b[1].n - a[1].n).slice(0, 6).map(([want, m]) => {
+    const picks = Object.entries(m).filter(([k]) => k !== 'n').sort((a, b) => b[1] - a[1]).slice(0, 3);
+    return `<div class="crow"><div class="cwant">potrzebny <b>${esc(caseName2(want))}</b></div><div class="cgot">${picks.map(([k, v]) => `<span class="chip">${esc(caseName2(k))} <b>${v}</b></span>`).join('')}</div></div>`;
+  }).join('');
+  const confHTML = conf ? `<div class="card"><div class="lbl">Z czym mylisz przypadki</div><div class="muted" style="margin-bottom:6px">Jaki przypadek wybrałeś zamiast potrzebnego.</div>${conf}</div>` : '';
+  const rules = Object.entries(A.rules).filter(([, x]) => x.n >= 2).map(([k, x]) => ({ k, ...x, r: x.w / x.n }))
+    .sort((a, b) => b.r - a.r || b.n - a.n);
+  const rows = rules.map(x => `<tr class="${x.w === 0 ? 'ok' : ''}"><td>${esc(x.k)}</td><td class="num2">${x.n - x.w} z ${x.n}</td><td class="pbar">${bar(x.n - x.w, x.n, x.r > 0.5 ? 'red' : x.r > 0 ? 'amber' : 'green')}</td></tr>`).join('');
+  const rulesHTML = rows ? `<div class="card"><div class="lbl">Czasowniki i przyimki</div><div class="muted" style="margin-bottom:6px">Dobre odpowiedzi według tego, czego wymaga zdanie. Od najsłabszych; tylko reguły z co najmniej 2 odpowiedziami.</div>
+    <table class="rules">${rows}</table></div>` : '';
+  return types + confHTML + rulesHTML;
+}
+
 function exportText() {
   const lines = ['Statystyki: polskie przypadki'];
   const cellName = c => { const [ci, g] = c.split(':'); return CASES[+ci].ru + ' / ' + GROUPS.find(x => x.id === g).ru; };
   [['choice', 'Etap 1 — wybór'], ['type', 'Etap 2 — wpisywanie']].forEach(([k, title]) => {
     lines.push('', '== ' + title + ' ==');
     ALL_CELLS.forEach(c => { const s = stats[CK(k)][c]; if (s && s.n) lines.push(`${cellName(c)}: błędy ${s.wrong}/${s.n} (przym. ${s.adjWrong}, rzecz. ${s.nounWrong})`); });
+    const A = stats.an[k];
+    if (A && A.errs) {
+      const ty = Object.entries(A.types).sort((a, b) => b[1] - a[1]);
+      if (ty.length) lines.push('Rodzaje błędów: ' + ty.map(([t, v]) => `${t} ${v}`).join(', '));
+      Object.entries(A.conf).forEach(([w, m]) => lines.push(`Pomyłki: potrzebny ${caseName2(w)} → ` + Object.entries(m).filter(([x]) => x !== 'n').map(([x, v]) => `${caseName2(x)} ${v}`).join(', ')));
+      Object.entries(A.rules).filter(([, x]) => x.w).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n).forEach(([r, x]) => lines.push(`Reguła „${r}”: błędy ${x.w}/${x.n}`));
+    }
     const lg = stats[LK(k)].slice(-50);
     if (lg.length) {
       lines.push('Ostatnie błędy (zdanie | podano | poprawnie | moja odpowiedź):');
@@ -685,7 +758,7 @@ function bindStats() {
 }
 
 render();
-Store.init().then(loadAll).then(render);
+Store.init().then(loadAll).then(render).then(backfill);
 
 // Aplikacja offline (tylko na zwykłej stronie, nie w podglądzie claude.ai)
 if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.claude) {

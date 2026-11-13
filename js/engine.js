@@ -190,3 +190,75 @@ function exampleFor(q, pool) {
   return { sentence: e.sentence, phrase: e.adjAnswer + ' ' + e.nounAnswer, base: e.base };
 }
 
+
+// ===== Analiza odpowiedzi: jaki to błąd, jaki przypadek wybrano, jaka reguła =====
+const ERR_TYPES = {
+  przypadek: 'Zły przypadek — obie formy pasują do siebie, ale w innym przypadku',
+  liczba: 'Zła liczba — dobra forma, ale nie ta liczba',
+  rzecz: 'Zła forma rzeczownika — przymiotnik dobry',
+  przym: 'Zła forma przymiotnika — rzeczownik dobry',
+  forma: 'Nieistniejąca forma (np. chlebu, studentam, w lasie)',
+  niesp: 'Słowa w różnych przypadkach',
+  dia: 'Tylko polskie znaki',
+};
+function ruleLabel(h) {
+  if (!h) return null;
+  if (/podmiot/.test(h)) return 'podmiot (kto? co?)';
+  if (/przeczeni/.test(h)) return 'przeczenie (nie ma, nie znam…)';
+  if (/przynależność/.test(h)) return 'czyj? (przynależność)';
+  let l = h.split(' — ')[0].split('. ')[0].replace(/\.$/, '').trim();
+  for (const [re, g] of RULE_GROUPS) if (re.test(l)) return g;
+  return l;
+}
+const RULE_GROUPS = [
+  [/^dziękować/, 'dziękować komu?'],
+  [/^dzięki/, 'dzięki + celownik'],
+  [/^pomagać/, 'pomagać komu?'],
+  [/^(kupić|dać|dawać jeść|wysłać|pożyczyć|oddać|czytać|przedstawić) komu/, 'komu? (dać, kupić, wysłać…)'],
+  [/^(przyglądać się|oprzeć się)/, 'przyglądać się / oprzeć się czemu?'],
+  [/^czekać na/, 'czekać na + biernik'],
+  [/^(spotkać|zaprosić|odprowadzać|karmić|dostać|kupić|zostawić|widzieć|narysować|lubić|sprzedawać|pokroić|upiec|pochwalić|zapytać|widać)(?= |$)/, 'kogo? co? (biernik po czasowniku)'],
+  [/^(z kim|z czym|spotkać się z|zaprzyjaźnić się z)/, 'z + narzędnik (z kim? z czym?)'],
+  [/^(opiekować się|zajmować się|zachwycać się|częstować|dzielić się)/, 'narzędnik po czasowniku (zajmować się…)'],
+  [/^zadowolony z/, 'zadowolony z + dopełniacz'],
+  [/^(o kim|o czym|zapomnieć o)/, 'o + miejscownik'],
+  [/^w \(|^w czym|^w \+ miejscownik/, 'w + miejscownik (gdzie?)'],
+  [/^(szukać|potrzebować)/, 'szukać / potrzebować czego?'],
+  [/^czym\?/, 'czym? (środek transportu)'],
+];
+function adjLemmaOf(q) {
+  const n = NOUNS[q.ni]; if (!n) return null;
+  const first = q.base.split(' ')[0];
+  return n.adjs.find(a => adjFor(a, n.g, 'N', false) === first) || null;
+}
+// zwraca { et, cc, rl } — typ błędu, wybrany przypadek ('D' albo 'D+' dla l. mn.), etykieta reguły
+function analyzeAnswer(q, gotA, gotN, adjOk, nounOk, diaOnly) {
+  const out = { rl: ruleLabel(q.hint) };
+  if (adjOk && nounOk) return out;
+  if (diaOnly) { out.et = 'dia'; return out; }
+  const n = NOUNS[q.ni], adj = n && adjLemmaOf(q);
+  if (!n || !adj) return out;
+  const vir = n.g === 'mp', want = CASES[q.caseIdx].id, wantPl = !!q.plural;
+  const keys = [];
+  ['N', 'G', 'D', 'A', 'I', 'L'].forEach(c => [false, true].forEach(pl => { if (!(pl && n.noPl)) keys.push([c, pl]); }));
+  const SA = keys.filter(([c, pl]) => adjFor(adj, n.g, c, pl, vir) === gotA);
+  const SN = keys.filter(([c, pl]) => (pl ? n.pl : n.sg)[CI[c]] === gotN);
+  const tag = ([c, pl]) => c + (pl ? '+' : '');
+  const both = SA.filter(a => SN.some(b => a[0] === b[0] && a[1] === b[1]));
+  if (!SN.length && !nounOk) { out.et = 'forma'; if (adjOk) return out; }
+  else if (!SA.length && !adjOk) { out.et = 'forma'; }
+  else if (both.length && !both.some(([c, pl]) => c === want && pl === wantPl)) {
+    const sameNum = both.filter(([, pl]) => pl === wantPl);
+    const pick = sameNum[0] || both[0];
+    out.et = pick[1] === wantPl ? 'przypadek' : 'liczba';
+    out.cc = tag(pick);
+    return out;
+  } else if (adjOk && !nounOk) out.et = 'rzecz';
+  else if (nounOk && !adjOk) out.et = 'przym';
+  else out.et = 'niesp';
+  // jaki przypadek „wybrało” błędne słowo (jeśli jednoznacznie)
+  const wrong = !nounOk ? SN : SA;
+  const other = wrong.filter(([c, pl]) => !(c === want && pl === wantPl));
+  if (other.length) { const same = other.filter(([, pl]) => pl === wantPl); out.cc = tag(same[0] || other[0]); }
+  return out;
+}

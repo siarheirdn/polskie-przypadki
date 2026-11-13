@@ -4,6 +4,6 @@ module.exports = function load() {
   const ctx = {};
   vm.createContext(ctx);
   for (const f of ['data.js', 'engine.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
-  vm.runInContext('this.E = { CASES, GROUPS, NOUNS, TEMPLATES, buildPool, makeQuestion, rulesFor, exampleFor }', ctx);
+  vm.runInContext('this.E = { CASES, GROUPS, NOUNS, TEMPLATES, buildPool, makeQuestion, rulesFor, exampleFor, analyzeAnswer, ruleLabel }', ctx);
   return ctx.E;
 };
