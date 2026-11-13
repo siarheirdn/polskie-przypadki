@@ -296,14 +296,15 @@ function render() {
   v.innerHTML = questionHTML() + footer(); bindQuestion();
 }
 function footer() {
-  return `<div class="muted" style="margin-top:14px">${Store.cloud ? 'Wyniki zapisują się w chmurze — dostępne na każdym urządzeniu.' : 'Wyniki zapisują się tylko w tej przeglądarce.'}
-  <div id="status" style="color:var(--bad)">${esc(Store.status)}</div></div>`;
+  const sid = session && !session.finished && !session.paused && tab === 'train' ? `Sesja <span class="sid">${esc(session.id)}</span>. ` : '';
+  return `<div class="foot">${sid}${Store.cloud ? 'Wyniki zapisują się w chmurze i są dostępne na każdym urządzeniu.' : 'Wyniki zapisują się tylko w tej przeglądarce.'}
+  <div id="status">${esc(Store.status)}</div></div>`;
 }
 
 function stageSwitch(id, cur) {
   return `<div class="seg" id="${id}">
-    <button data-k="choice" class="${cur === 'choice' ? 'on' : ''}">Etap 1 — wybór</button>
-    <button data-k="type" class="${cur === 'type' ? 'on' : ''}">Etap 2 — wpisywanie</button></div>`;
+    <button data-k="choice" class="${cur === 'choice' ? 'on' : ''}">1. Wybór</button>
+    <button data-k="type" class="${cur === 'type' ? 'on' : ''}">2. Wpisywanie</button></div>`;
 }
 
 let selSess = null;
@@ -341,7 +342,7 @@ function startHTML() {
   ${stageSwitch('stageSw', stage)}
   <div class="muted" style="margin:-4px 0 12px">${descr}</div>
   <div class="card">
-    <div class="lbl">Test — wszystkie pola po równo</div>
+    <div class="lbl">Test: wszystkie pola po równo</div>
     <div class="muted">${NC} pól: 6 przypadków × 7 grup rodzaju i liczby, bez mianownika w liczbie pojedynczej (tam forma się nie zmienia). Każda runda przechodzi przez wszystkie pola po razie, w losowej kolejności.</div>
     <div style="margin-top:8px">
       ${ROUNDS.map((n, k) => [n, ['4 rundy', '5 rund', '6 rund', '7 rund'][k]]).map(([n, t]) =>
@@ -386,7 +387,7 @@ function questionHTML() {
   const w = Math.max(q.base.length * 0.85, 10, done ? (q.adjAnswer.length + q.nounAnswer.length + 1) : 0);
   const pa = typing && !done ? norm(curA) : curA, pn = typing && !done ? norm(curN) : curN;
   const pick = (pa || pn) ? esc(pa || '…') + ' ' + esc(pn || '…') : '&nbsp;';
-  const filled = `<span class="slot"><span class="stop">${esc(q.base)}</span><span class="gap ${done ? '' : 'pick'}" id="gap" style="min-width:${w}ch">${done ? esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) : pick}</span><span class="sbot num ${q.plural ? 'pl' : 'sg'}">${q.plural ? 'liczba mnoga' : 'liczba pojedyncza'}</span></span>`;
+  const filled = `<span class="slot ${done ? (res.ok ? 'ok' : 'bad') : ''}"><span class="stop">${esc(q.base)}</span><span class="gap ${done ? '' : 'pick'}" id="gap" style="min-width:${w}ch">${done ? esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) : pick}</span><span class="sbot num ${q.plural ? 'pl' : 'sg'}">${q.plural ? 'liczba mnoga' : 'liczba pojedyncza'}</span></span>`;
   const sentence = esc(q.sentence).replace('___', filled);
   const btn = (opt, kind) => {
     const sel = kind === 'adj' ? curA : curN, ans = kind === 'adj' ? q.adjAnswer : q.nounAnswer;
@@ -410,14 +411,14 @@ function questionHTML() {
   const rules = rulesFor(CASES[q.caseIdx].id, q.group);
   const ex = done ? exampleOf(q) : null;
   return `
-  <div class="muted" style="display:flex;justify-content:space-between"><span>Sesja <b class="sid">${esc(s.id)}</b> · ${typing ? 'Wpisywanie' : 'Wybór'} · pytanie ${s.i + 1} z ${s.count}</span><span>Dobrze: ${correct} z ${answered}</span></div>
+  <div class="qhead"><span>Pytanie <b>${s.i + 1}</b> z ${s.count}</span><span>Dobrze: <b>${correct}</b> z ${answered}</span></div>
   <div class="progress"><div style="width:${(answered / s.count) * 100}%"></div></div>
   <div class="card">
     <div class="sent">${sentence}</div>
     ${body}
     ${done ? `
       <div class="fb ${res.ok ? 'ok' : 'bad'}">
-        <div class="verdict">${res.ok ? '✓ Dobrze!' : '✗ Źle'}</div>
+        <div class="verdict">${res.ok ? 'Dobrze!' : 'Źle'}</div>
         <div class="cap">Poprawna odpowiedź:</div>
         <div class="right">${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</div>
         <div class="full">${esc(q.sentence).replace('___', '<b>' + esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) + '</b>')}</div>
@@ -426,7 +427,7 @@ function questionHTML() {
         <div class="why">
           <div class="cap">Dlaczego:</div>
           <div><b>${esc(CASES[q.caseIdx].ru)}</b> <span class="muted">(${esc(CASES[q.caseIdx].pl)})</span></div><div>${esc(q.hint)}</div>
-          <div class="cap" style="margin-top:8px">Końcówki · ${esc(groupName(q.group))}:</div>
+          <div class="cap" style="margin-top:8px">Końcówki (${esc(groupName(q.group))}):</div>
           <div class="endings"><div><span class="muted">przymiotnik</span> ${esc(rules.adj)}</div><div><span class="muted">rzeczownik</span> ${esc(rules.noun)}</div></div>
           ${ex ? `<div class="cap" style="margin-top:8px">Inny przykład:</div><div>${esc(ex.sentence).replace('___', '<b>' + esc(ex.phrase) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
         </div>
@@ -439,7 +440,7 @@ function questionHTML() {
     <button class="ghost" id="skip" ${done || nextU < 0 ? 'disabled' : ''}>Pomiń</button>
     <button class="ghost" id="fwd" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>Dalej ›</button>
   </div>
-  <button class="ghost" id="quit" style="margin-top:8px">Przerwij (zapisane — można wrócić później)</button>`;
+  <button class="ghost" id="quit" style="margin-top:8px">Przerwij — postęp jest zapisany</button>`;
 }
 function advance(idx) { session.front = Math.max(session.front || 0, idx); goTo(idx); }
 function goTo(idx) {
@@ -515,7 +516,7 @@ function finishHTML() {
   </div>
   ${finished && s.kind === 'choice' ? `
   <div class="card">
-    <div class="lbl">Dalej — etap 2</div>
+    <div class="lbl">Dalej: etap 2</div>
     <div class="muted">Te same pola, nowe zdania, ale obie formy trzeba wpisać samodzielnie.</div>
     <button class="big" id="toType">Rozpocznij etap 2 (${pyt(s.mode === 'test' ? nextCount : 30)})</button>
   </div>` : ''}
