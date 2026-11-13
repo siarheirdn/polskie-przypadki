@@ -6,7 +6,6 @@
   --red: #cf3a2f; --red-soft: #fcecea;
   --green: #2f7a4f; --green-soft: #e8f4ed;
   --amber: #8a5a10; --amber-soft: #f6ead2;
-  --hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;
   --serif: "Literata", Georgia, "Times New Roman", serif;
   --sans: "Lato", -apple-system, "Segoe UI", Roboto, sans-serif;
   --cell: 24px;
@@ -54,7 +53,7 @@ button.ghost:disabled { opacity: .4; cursor: default; }
 /* Zdanie — najważniejsze miejsce */
 .sent { font: 400 21px/1.5 var(--serif); margin: 6px 0 30px; line-height: 3.3; }
 .slot { position: relative; display: inline-block; margin: 0 4px; line-height: 1.3; }
-.gap { display: inline-block; min-width: 120px; padding: 0 6px; border-bottom: 2px solid var(--pen); text-align: center; font: 700 28px/1.15 var(--hand); color: var(--ink); }
+.gap { display: inline-block; min-width: 120px; padding: 0 6px; border-bottom: 2px solid var(--pen); text-align: center; font: 600 21px/1.3 var(--serif); color: var(--ink); }
 .slot .gap.pick { color: var(--pen); }
 .slot.bad .gap { color: var(--red); border-bottom-color: var(--red); }
 .slot.ok .gap { color: var(--pen); }
@@ -105,7 +104,7 @@ button.ghost:disabled { opacity: .4; cursor: default; }
 /* Ocena po sprawdzeniu — jak uwaga nauczyciela na marginesie */
 .fb { margin-top: 18px; padding: 2px 0 2px 16px; border-left: 3px solid var(--green); font-size: 15px; }
 .fb.bad { border-left-color: var(--red); }
-.fb .verdict { font: 700 30px/1 var(--hand); margin-bottom: 10px; color: var(--green); }
+.fb .verdict { font: 700 18px/1.2 var(--sans); margin-bottom: 8px; color: var(--green); }
 .fb.bad .verdict { color: var(--red); }
 .fb .cap { font-size: 13px; color: var(--muted); margin-top: 12px; }
 .fb .note { margin-top: 8px; }
@@ -132,7 +131,7 @@ button.ghost:disabled { opacity: .4; cursor: default; }
 .opt { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
 .opt:last-child { border-bottom: none; }
 .opt input { width: 18px; height: 18px; accent-color: var(--pen); }
-.score { font: 700 44px/1 var(--hand); color: var(--pen); margin: 4px 0 6px; }
+.score { font: 700 36px/1.1 var(--serif); color: var(--ink); margin: 4px 0 6px; }
 .list { margin: 0; padding-left: 18px; }
 .list li { margin: 4px 0; }
 
@@ -160,7 +159,7 @@ textarea { width: 100%; height: 140px; font: 12px/1.4 var(--sans); background: v
 
 @media (max-width: 420px) {
   .sent { font-size: 19px; }
-  .gap { font-size: 26px; }
+  .gap { font-size: 20px; }
   .card { padding: 16px 14px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
