@@ -482,10 +482,12 @@ async function resumeSession(id) {
 // ===================== Рендер =====================
 function render() {
   const v = document.getElementById('view');
+  document.body.classList.remove('focus');
   if (!loaded) { v.innerHTML = '<div class="card muted">Wczytywanie…</div>'; return; }
   if (tab === 'stats') { v.innerHTML = statsHTML() + footer(); bindStats(); return; }
   if (!session) { v.innerHTML = startHTML() + footer(); bindStart(); return; }
   if (session.finished || session.paused) { v.innerHTML = finishHTML() + footer(); bindFinish(); return; }
+  document.body.classList.add('focus');
   v.innerHTML = questionHTML() + footer(); bindQuestion();
 }
 function footer() {
@@ -576,52 +578,83 @@ function bindStart() {
   }
 }
 
+const ICON = {
+  close: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  prev: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  next: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  ok: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  bad: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  tag: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 12V4h8l10 10-8 8L3 12z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="7.5" cy="8.5" r="1.4" fill="currentColor"/></svg>',
+  noun: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  okc: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  badc: '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round"/></svg>',
+};
+const NUM_TXT = pl => pl ? 'liczba mnoga' : 'liczba pojedyncza';
+function verdictText(q, res) {
+  const c = CASES[q.caseIdx], g = groupName(q.group).replace(/^l\. (poj|mn)\., /, '');
+  const where = `${c.ru}, ${NUM_TXT(q.plural)}, ${g}`;
+  const R = rulesFor(c.id, q.group);
+  if (res.ok) return { head: 'Dobrze!', line: `${q.hint}` };
+  if (res.diaOnly) return { head: 'Prawie — tylko polskie znaki.', line: 'Forma jest dobra, sprawdź ą, ę, ł, ó, ś, ż.' };
+  const et = res.raw && res.raw.et;
+  if (et === 'przypadek') return { head: 'Zły przypadek.', line: `${q.hint} Wybrałeś ${caseLabel(res.raw.cc)}.` };
+  if (et === 'liczba') return { head: 'Zła liczba.', line: `Potrzebna ${NUM_TXT(q.plural)}.` };
+  if (et === 'forma') {
+    const tk = res.raw.tk && TRAP_INFO[res.raw.tk];
+    return { head: 'Takiej formy nie ma.', line: tk ? tk.d : `${where}: rzeczownik ${R.noun}.` };
+  }
+  if (!res.adjOk && res.nounOk) return { head: 'Błędny przymiotnik.', line: `To ${where}, dlatego przymiotnik ma formę ${q.adjAnswer}. Końcówka: ${R.adj}.` };
+  if (res.adjOk && !res.nounOk) return { head: 'Błędny rzeczownik.', line: `To ${where}, dlatego rzeczownik ma formę ${q.nounAnswer}.` };
+  return { head: 'Oba słowa są błędne.', line: `${q.hint} To ${where}.` };
+}
 function questionHTML() {
   const s = session, q = s.questions[s.i], typing = s.kind === 'type';
   const res = s.byQ[s.i], done = !!res;
   const curA = done ? res.gotA : (typing ? s.inAdj : s.selAdj), curN = done ? res.gotN : (typing ? s.inNoun : s.selNoun);
-  const w = Math.max(q.base.length * 0.85, 10, done ? (q.adjAnswer.length + q.nounAnswer.length + 1) : 0);
+  const w = Math.max(q.base.length * 0.8, 9, done ? (q.adjAnswer.length + q.nounAnswer.length + 1) * 0.85 : 0);
   const pa = typing && !done ? norm(curA) : curA, pn = typing && !done ? norm(curN) : curN;
   const pick = (pa || pn) ? esc(pa || '…') + ' ' + esc(pn || '…') : '&nbsp;';
-  const filled = `<span class="slot ${done ? (res.ok ? 'ok' : 'bad') : ''}"><span class="stop">${esc(q.base)}</span><span class="gap ${done ? '' : 'pick'}" id="gap" style="min-width:${w}ch">${done ? esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) : pick}</span><span class="sbot num ${q.plural ? 'pl' : 'sg'}">${q.plural ? 'liczba mnoga' : 'liczba pojedyncza'}</span></span>`;
+  const filled = `<span class="slot ${done ? (res.ok ? 'ok' : 'bad') : ''}"><span class="stop">${esc(q.base)}</span><span class="gap ${done ? '' : 'pick'}" id="gap" style="min-width:${w}ch">${done ? esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) : pick}</span><span class="sbot num ${q.plural ? 'pl' : 'sg'}">${NUM_TXT(q.plural)}</span></span>`;
   const sentence = esc(q.sentence).replace('___', filled);
   const btn = (opt, kind) => {
     const sel = kind === 'adj' ? curA : curN, ans = kind === 'adj' ? q.adjAnswer : q.nounAnswer;
-    let cls = 'choice';
-    if (done) { if (opt === ans) cls += ' ok'; else if (opt === sel) cls += ' bad'; }
+    let cls = 'choice', ic = '';
+    if (done) { if (opt === ans) { cls += ' ok'; ic = ICON.ok; } else if (opt === sel) { cls += ' bad'; ic = ICON.bad; } }
     else if (opt === sel) cls += ' sel';
-    return `<button class="${cls}" data-kind="${kind}" data-v="${esc(opt)}" ${done ? 'disabled' : ''}>${esc(opt)}</button>`;
+    return `<button class="${cls}" data-kind="${kind}" data-v="${esc(opt)}" ${done ? 'disabled' : ''}><span>${esc(opt)}</span>${ic ? `<i class="cic">${ic}</i>` : ''}</button>`;
   };
-  const inp = (id, val, ok, ans, ph) => `
-    <input class="tin ${done ? (ok ? 'ok' : 'bad') : ''}" id="${id}" value="${esc(val || '')}" placeholder="${ph}"
-      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="pl" ${done ? 'disabled' : ''}>
-    ${done && !ok ? `<div class="fix">poprawnie: <b>${esc(ans)}</b></div>` : ''}`;
-  const body = typing ? `
-      <div class="lbl">Przymiotnik</div>${inp('inAdj', curA, res && res.adjOk, q.adjAnswer, 'przymiotnik')}
-      <div class="lbl">Rzeczownik</div>${inp('inNoun', curN, res && res.nounOk, q.nounAnswer, 'rzeczownik')}` : `
-      <div class="lbl">Przymiotnik</div><div class="row">${q.adjOptions.map(o => btn(o, 'adj')).join('')}</div>
-      <div class="lbl">Rzeczownik</div><div class="row">${q.nounOptions.map(o => btn(o, 'noun')).join('')}</div>`;
+  const inp = (id, val, ok, ph) => `<input class="tin ${done ? (ok ? 'ok' : 'bad') : ''}" id="${id}" value="${esc(val || '')}" placeholder="${ph}"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="pl" ${done ? 'disabled' : ''}>`;
+  const sec = (icon, label) => `<div class="sec">${icon}<span>${label}</span></div>`;
+  const body = typing
+    ? `${sec(ICON.tag, 'Przymiotnik')}${inp('inAdj', curA, res && res.adjOk, 'wpisz przymiotnik')}
+       ${sec(ICON.noun, 'Rzeczownik')}${inp('inNoun', curN, res && res.nounOk, 'wpisz rzeczownik')}`
+    : `${sec(ICON.tag, 'Przymiotnik')}<div class="opts">${q.adjOptions.map(o => btn(o, 'adj')).join('')}</div>
+       ${sec(ICON.noun, 'Rzeczownik')}<div class="opts">${q.nounOptions.map(o => btn(o, 'noun')).join('')}</div>`;
   const ready = typing ? (norm(s.inAdj) && norm(s.inNoun)) : (s.selAdj && s.selNoun);
   const answered = s.results.length, correct = s.results.filter(x => x.ok).length;
   const nextU = nextUnanswered(s, s.i);
   const rules = rulesFor(CASES[q.caseIdx].id, q.group);
   const ex = done ? exampleOf(q) : null;
+  const v = done ? verdictText(q, res) : null;
   return `
-  <div class="qhead">
-    <div class="qpos"><span>Pytanie <b>${s.i + 1}</b> z ${s.count}</span>
-      <div class="progress"><div style="width:${(answered / s.count) * 100}%"></div></div></div>
+  <div class="topbar">
+    <button class="tbtn" id="quit" title="Zakończ — postęp jest zapisany" aria-label="Zakończ sesję">${ICON.close}</button>
+    <div class="tcenter"><div class="tpos">Pytanie ${s.i + 1} z ${s.count}</div>
+      <div class="progress"><div style="width:${Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
     <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
   </div>
-  <div class="card qcard">
-    <div class="sent">${sentence}</div>
-    ${body}
-    ${done ? `
-      <div class="fb ${res.ok ? 'ok' : 'bad'}" id="fb">
-        <div class="verdict">${res.ok ? 'Dobrze!' : 'Źle'}</div>
-        ${res.ok ? '' : `<div class="cap">Poprawnie:</div><div class="right">${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</div>
-        <div class="cap">Twoja odpowiedź:</div><div class="yours">${[[res.gotA, res.adjOk], [res.gotN, res.nounOk]].map(([w, ok]) => ok ? esc(w) : '<s>' + esc(w) + '</s>').join(' ')}</div>`}
-        ${res.diaOnly ? '<div class="note">Błąd tylko w polskich znakach — sama forma jest poprawna.</div>' : ''}
-        <div class="why">
+  <div class="sent">${sentence}</div>
+  ${body}
+  ${done ? `
+    <div class="fb ${res.ok ? 'ok' : 'bad'}" id="fb">
+      <div class="vhead">${res.ok ? ICON.okc : ICON.badc}<span>${esc(v.head)}</span></div>
+      ${res.ok ? '' : `<div class="vright">Poprawnie: <b>${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</b>.</div>`}
+      <div class="vline">${esc(v.line)}</div>
+      <details class="rule">
+        <summary>Zobacz regułę</summary>
+        <div class="rbody">
           <div class="why-case"><b>${esc(CASES[q.caseIdx].ru)}</b> <span class="muted">${esc(CASES[q.caseIdx].pl)}</span></div>
           <div>${esc(q.hint)}</div>
           <div class="endings">
@@ -631,17 +664,14 @@ function questionHTML() {
           </div>
           ${ex ? `<div class="cap">Inny przykład</div><div class="ex">${esc(ex.sentence).replace('___', '<b>' + esc(ex.phrase) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
         </div>
-      </div>` : ''}
-  </div>
-  <button class="linkbtn" id="quit">Przerwij sesję — postęp jest zapisany</button>
+      </details>
+    </div>` : `<button class="linkbtn" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń to pytanie</button>`}
   <div class="actions">
-    <button class="ibtn nav-i" id="prev" title="Poprzednie pytanie" aria-label="Poprzednie pytanie" ${s.i === 0 ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="ibtn nav-i" id="prev" title="Poprzednie pytanie" aria-label="Poprzednie pytanie" ${s.i === 0 ? 'disabled' : ''}>${ICON.prev}</button>
     ${done
-      ? (nextU >= 0 ? `<button class="big" id="nextU">Następne pytanie</button>` : `<button class="big" id="finish">Zobacz wyniki</button>`)
-      : `<button class="ghost skip" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń</button><button class="big" id="check" ${ready ? '' : 'disabled'}>Sprawdź</button>`}
-    <button class="ibtn nav-i" id="fwd" title="Następne pytanie z odpowiedzią" aria-label="Dalej" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      ? (nextU >= 0 ? `<button class="big" id="nextU">Następne pytanie ${ICON.arrow}</button>` : `<button class="big" id="finish">Zobacz wyniki ${ICON.arrow}</button>`)
+      : `<button class="big" id="check" ${ready ? '' : 'disabled'}>Sprawdź ${ICON.arrow}</button>`}
+    <button class="ibtn nav-i" id="fwd" title="Następne pytanie z odpowiedzią" aria-label="Dalej" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>${ICON.next}</button>
   </div>`;
 }
 function advance(idx) { session.front = Math.max(session.front || 0, idx); goTo(idx); }
