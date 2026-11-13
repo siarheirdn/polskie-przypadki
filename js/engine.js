@@ -107,6 +107,27 @@ function adjFor(adj, g, c, plural, vir) {
   if (c === 'A') return g === 'mi' ? F.m.Ain : F.m.Aan;
   return F.m[c];
 }
+// Prawdopodobne, ale błędne końcówki — dokładnie tam, gdzie się je myli.
+const NEAR_MISS_PL_I = { 'dziećmi': 'dzieciami', 'końmi': 'koniami', 'przyjaciółmi': 'przyjacielami' };
+function nearMissNoun(n, c, plural, cn) {
+  const masc = n.g === 'mp' || n.g === 'ma' || n.g === 'mi';
+  const lemmaA = /a$/.test(n.sg[0]);            // kolega, kierowca — inne końcówki
+  let f = null;
+  if (!plural && masc && !lemmaA && c === 'G') {
+    if (/a$/.test(cn)) f = cn.slice(0, -1) + 'u';          // chleba → chlebu
+    else if (/u$/.test(cn)) f = cn.slice(0, -1) + 'a';     // sklepu → sklepa
+  } else if (!plural && masc && !lemmaA && c === 'D') {
+    if (/owi$/.test(cn)) f = cn.slice(0, -3) + 'u';        // telefonowi → telefonu
+    else if (/u$/.test(cn)) f = cn.slice(0, -1) + 'owi';   // psu → psowi
+  } else if (plural && masc && c === 'G' && /[yi]$/.test(cn) && !/ów$/.test(cn)) {
+    f = cn.slice(0, -1) + 'ów';                            // lekarzy → lekarzów, nauczycieli → nauczycielów
+  } else if (plural && c === 'I' && NEAR_MISS_PL_I[cn]) {
+    f = NEAR_MISS_PL_I[cn];
+  }
+  if (!f || f === cn) return null;
+  // nie dawać tej samej formy co poprawna w liczbie mnogiej/pojedynczej, jeśli to i tak ta sama odpowiedź
+  return f;
+}
 function distractors(t, n, adj, c, plural, ca, cn) {
   const vir = n.g === 'mp';
   const baseA = adjFor(adj, n.g, 'N', false), baseN = n.sg[0];
@@ -123,6 +144,8 @@ function distractors(t, n, adj, c, plural, ca, cn) {
   if (!plural) push([c, ...trap], false, other);   // pułapka rodzaju (kolega → młodej, kotka → młodego)
   push(['N', 'G', 'D', 'A', 'I', 'L'], plural); push(['N', 'G', 'D', 'A', 'I', 'L'], !plural);
   const A = [], N = [];
+  const fake = nearMissNoun(n, c, plural, cn);
+  if (fake) N.push(fake);
   const okA = x => x && x !== ca && !A.includes(x) && (x !== baseA || ca === baseA);
   const okN = x => x && x !== cn && !N.includes(x) && (x !== baseN || cn === baseN);
   for (const [a, nn] of pairs) {
