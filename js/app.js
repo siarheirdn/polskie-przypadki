@@ -688,7 +688,6 @@ function questionHTML() {
       <div class="progress"><div style="width:${Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
     <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
     ${fszHTML()}
-    <button class="tbtn" id="toStatsQ" title="Statystyki" aria-label="Statystyki">${ICON.stats}</button>
   </div>
   <div class="sent">${sentence}</div>
   ${body}
@@ -718,7 +717,8 @@ function questionHTML() {
     <button class="ibtn nav-i" id="fwd" title="Następne pytanie z odpowiedzią" aria-label="Dalej" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>${ICON.next}</button>
   </div>
   <div class="qstats">
-    <h2 class="sub">Postęp w tej sesji</h2>
+    <div class="qshead"><h2 class="sub">Postęp w tej sesji</h2>
+      <button class="tbtn" id="toStatsQ" title="Pełne statystyki" aria-label="Pełne statystyki">${ICON.stats}</button></div>
     ${trendChartHTML(s.results, 'Dynamika')}
     ${s.results.length ? miniStatsHTML(sessionCells(s), 'Błędy według przypadków, %', 'ta sesja') : ''}
   </div>`;
