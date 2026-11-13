@@ -609,15 +609,39 @@ function bindFsz() {
     applyZoom(); render();
   });
 }
+// ---- Podświetlanie końcówek
+function hlWord(form, base) {
+  if (!base) return esc(form);
+  const a = form.toLowerCase(), b = base.toLowerCase().replace(/[aeiouyąęó]$/, ''); // końcówka formy podstawowej też jest końcówką
+  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  if (p >= form.length) return esc(form);                    // forma = podstawowa
+  p = Math.max(p, Math.min(2, form.length - 1));              // zostaw choć kawałek tematu
+  return esc(form.slice(0, p)) + '<span class="end">' + esc(form.slice(p)) + '</span>';
+}
+function hlPhrase(phrase, base) {
+  const f = phrase.split(' '), b = (base || '').split(' ');
+  return f.map((w, i) => hlWord(w, b[i])).join(' ');
+}
+// w opisie końcówek: przykłady w nawiasach, podświetlona pasująca końcówka
+function hlRule(text) {
+  let ends = [...new Set((text.match(/-[a-ząćęłńóśźż]+/g) || []).map(e => e.slice(1)))];
+  if (!ends.length) ends = ['ów', 'ach', 'ami', 'om', 'owi', 'iem', 'em', 'ie', 'y', 'i', 'a', 'u', 'ę', 'ą'];
+  ends.sort((x, y) => y.length - x.length);
+  return esc(text).replace(/\(([^)]*)\)/g, (m, inner) => '(' + inner.replace(/[a-ząćęłńóśźżA-ZĄĆĘŁŃÓŚŹŻ]+/g, w => {
+    if (/^(ale|ż|nij|m|po|na|jak|w|i|wyjątek|wyjątki|rodzaju|żeńskim|zwykle|krótkie)$/.test(w)) return w;
+    const e = ends.find(x => w.length > x.length + 1 && w.endsWith(x));
+    return e ? w.slice(0, -e.length) + '<span class="end">' + e + '</span>' : w;
+  }) + ')');
+}
 const NUM_TXT = pl => pl ? 'liczba mnoga' : 'liczba pojedyncza';
 function verdictText(q, res) {
   const c = CASES[q.caseIdx], g = groupName(q.group).replace(/^l\. (poj|mn)\., /, '');
   const where = `${c.ru}, ${NUM_TXT(q.plural)}, ${g}`;
   const R = rulesFor(c.id, q.group);
-  if (res.ok) return { head: 'Dobrze!', line: `${q.hint}` };
+  if (res.ok) return { head: 'Dobrze!', line: '' };
   if (res.diaOnly) return { head: 'Prawie — tylko polskie znaki.', line: 'Forma jest dobra, sprawdź ą, ę, ł, ó, ś, ż.' };
   const et = res.raw && res.raw.et;
-  if (et === 'przypadek') return { head: 'Zły przypadek.', line: `${q.hint} Wybrałeś ${caseLabel(res.raw.cc)}.` };
+  if (et === 'przypadek') return { head: 'Zły przypadek.', line: `Potrzebny ${c.ru}, a wybrałeś ${caseLabel(res.raw.cc)}.` };
   if (et === 'liczba') return { head: 'Zła liczba.', line: `Potrzebna ${NUM_TXT(q.plural)}.` };
   if (et === 'forma') {
     const tk = res.raw.tk && TRAP_INFO[res.raw.tk];
@@ -625,7 +649,7 @@ function verdictText(q, res) {
   }
   if (!res.adjOk && res.nounOk) return { head: 'Błędny przymiotnik.', line: `To ${where}, dlatego przymiotnik ma formę ${q.adjAnswer}. Końcówka: ${R.adj.replace(/-/g, '\u2011')}.` };
   if (res.adjOk && !res.nounOk) return { head: 'Błędny rzeczownik.', line: `To ${where}, dlatego rzeczownik ma formę ${q.nounAnswer}.` };
-  return { head: 'Oba słowa są błędne.', line: `${q.hint} To ${where}.` };
+  return { head: 'Oba słowa są błędne.', line: `To ${where}.` };
 }
 function questionHTML() {
   const s = session, q = s.questions[s.i], typing = s.kind === 'type';
@@ -671,21 +695,20 @@ function questionHTML() {
   ${done ? `
     <div class="fb ${res.ok ? 'ok' : 'bad'}" id="fb">
       <div class="vhead">${res.ok ? ICON.okc : ICON.badc}<span>${esc(v.head)}</span></div>
-      ${res.ok ? '' : `<div class="vright">Poprawnie: <b>${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</b>.</div>`}
-      <div class="vline">${esc(v.line)}</div>
-      <details class="rule">
-        <summary>Zobacz regułę</summary>
+      ${res.ok ? '' : `<div class="vright">Poprawnie: <b>${hlPhrase(q.adjAnswer + ' ' + q.nounAnswer, q.base)}</b>.</div>`}
+      ${v.line ? `<div class="vline">${esc(v.line)}</div>` : ''}
+      <div class="rule">
         <div class="rbody">
           <div class="why-case"><b>${esc(CASES[q.caseIdx].ru)}</b> <span class="muted">${esc(CASES[q.caseIdx].pl)}</span></div>
           <div>${esc(q.hint)}</div>
           <div class="endings">
             <div class="cap">Końcówki: ${esc(groupName(q.group))}</div>
-            <div><span class="muted">przymiotnik</span><span>${esc(rules.adj)}</span></div>
-            <div><span class="muted">rzeczownik</span><span>${esc(rules.noun)}</span></div>
+            <div><span class="muted">przymiotnik</span><span>${hlRule(rules.adj)}</span></div>
+            <div><span class="muted">rzeczownik</span><span>${hlRule(rules.noun)}</span></div>
           </div>
-          ${ex ? `<div class="cap">Inny przykład</div><div class="ex">${esc(ex.sentence).replace('___', '<b>' + esc(ex.phrase) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
+          ${ex ? `<div class="cap">Inny przykład</div><div class="ex">${esc(ex.sentence).replace('___', '<b>' + hlPhrase(ex.phrase, ex.base) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
         </div>
-      </details>
+      </div>
     </div>` : `<button class="linkbtn" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń to pytanie</button>`}
   <div class="actions">
     <button class="ibtn nav-i" id="prev" title="Poprzednie pytanie" aria-label="Poprzednie pytanie" ${s.i === 0 ? 'disabled' : ''}>${ICON.prev}</button>

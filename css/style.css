@@ -229,3 +229,8 @@ details.more > summary { cursor: pointer; list-style: none; padding: 12px 2px; c
 details.more > summary::-webkit-details-marker { display: none; }
 details.more > summary::before { content: ''; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
 details.more[open] > summary::before { transform: rotate(45deg); }
+
+/* Reguła zawsze widoczna, końcówki podświetlone */
+.rule { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 4px; }
+.end { color: var(--amber); font-weight: 700; }
+.vright b .end { color: var(--amber); }
