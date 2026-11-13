@@ -49,7 +49,7 @@ button.ghost:disabled { opacity: .4; cursor: default; }
 .linkbtn:disabled { opacity: .4; cursor: default; }
 
 /* Pasek górny pytania */
-.topbar { display: grid; grid-template-columns: 36px 1fr auto auto; align-items: center; gap: 10px; margin: 0 0 14px; }
+.topbar { display: grid; grid-template-columns: 34px 1fr auto auto 34px; align-items: center; gap: 8px; margin: 0 0 14px; }
 .tbtn { width: 34px; height: 34px; border: 0; border-radius: 10px; background: none; color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .tbtn:hover { color: var(--ink); background: var(--surface); }
 .tcenter { text-align: center; }

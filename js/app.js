@@ -580,6 +580,7 @@ function bindStart() {
 }
 
 const ICON = {
+  stats: '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 20V11M12 20V5M19 20v-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   prev: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   next: '<svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -662,6 +663,7 @@ function questionHTML() {
       <div class="progress"><div style="width:${Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
     <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
     ${fszHTML()}
+    <button class="tbtn" id="toStatsQ" title="Statystyki" aria-label="Statystyki">${ICON.stats}</button>
   </div>
   <div class="sent">${sentence}</div>
   ${body}
@@ -751,6 +753,7 @@ function bindQuestion() {
   document.getElementById('fwd').onclick = () => { if (s.i + 1 <= (s.front || 0) && s.i + 1 < s.count) goTo(s.i + 1); };
   const sk = document.getElementById('skip'); if (sk) sk.onclick = () => { const n = nextUnanswered(s, s.i); if (n >= 0) advance(n); };
   document.getElementById('quit').onclick = () => { s.paused = true; render(); window.scrollTo(0, 0); };
+  document.getElementById('toStatsQ').onclick = () => { statsKind = s.kind; document.querySelector('.tab[data-tab=stats]').click(); window.scrollTo(0, 0); };
 }
 
 function finishHTML() {
