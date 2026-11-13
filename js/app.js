@@ -236,6 +236,7 @@ function planHTML(where) {
       <button class="ghost drill" data-drill="${i}">Ćwicz to (15 pytań)</button>
     </div>`;
   }).join('');
+  if (where === 'start') return rev;
   return rev + `<div class="card plan"><div class="lbl">Co ćwiczyć</div>${body}</div>`;
 }
 // Ćwiczenie z drzewa: przypadek + liczba, słabsze rodzaje częściej
