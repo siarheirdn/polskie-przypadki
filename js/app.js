@@ -836,11 +836,6 @@ function statsHTML() {
     <div>Odpowiedzi: ${total}, z błędem: ${total ? Math.round(wrong / total * 100) : 0}%. Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}.${dia ? ` Tylko w polskich znakach: ${dia}.` : ''}</div>
   </div>
   ${caseTreeHTML(cells)}
-  <div class="card">
-    <div class="lbl">Błędy według pól</div>
-    <table class="grid"><tr><th></th>${CASES.map(c => `<th>${c.short}</th>`).join('')}</tr>${rows}</table>
-    <div class="legend"><span class="lg c-done">✓</span> opanowane: ostatnie 5 odpowiedzi dobrze · <span class="lg c-few">2×</span> za mało odpowiedzi (mniej niż 3) · w pozostałych polach odsetek błędów i „błędy / odpowiedzi”.</div>
-  </div>
   ${analysisHTML(statsKind)}
   <div class="card"><div class="lbl">Najsłabsze pola</div>${weak.length ? `<ul class="list">${weak.map(x => `<li>${esc(cellName(x.c))} — ${x.s.wrong} z ${x.s.n}</li>`).join('')}</ul>` : '<div class="muted">Na razie za mało danych (potrzebne są co najmniej 2 odpowiedzi w polu).</div>'}</div>
   ${historyHTML()}
@@ -927,7 +922,7 @@ function caseTreeHTML(cells) {
   if (!rows.length) return '';
   const chip = ({ name, x }) => `<span class="gchip ${level(x)}">${esc(name)} <b>${pctTxt(x)}</b><small>${x.w}/${x.n}</small></span>`;
   const numRow = (label, x, gl, key) => x.n ? `<div class="nrow"><div class="nhead"><span>${label}</span><span class="nval ${level(x)}">${pctTxt(x)} błędów <small>${x.w} z ${x.n}</small></span></div><div class="gchips">${gl.filter(g => g.x.n).map(chip).join('')}</div>
-    ${x.w && x.r >= 0.2 ? `<button class="ghost cdrill" data-cdrill="${key}">Ćwicz: ${esc(label.toLowerCase())} (15 pytań)</button>` : ''}</div>` : '';
+    ${x.n >= 3 && x.w && x.r >= 0.2 ? `<button class="ghost cdrill" data-cdrill="${key}">Ćwicz: ${esc(label.toLowerCase())} (15 pytań)</button>` : ''}</div>` : '';
   const worst = rows.find(r => r.all.n >= 3 && r.all.r >= 0.2);
   let head = '<div class="muted">Za mało odpowiedzi, żeby wskazać słabe miejsca.</div>';
   if (worst) {
