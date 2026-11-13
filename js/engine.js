@@ -40,7 +40,7 @@ function buildPool() {
     NOUNS.forEach((n, ni) => {
       if (n.cat !== t.cat) return;
       if (t.tag && !n.tags.includes(t.tag)) return;
-      if (t.notTag && n.tags.includes(t.notTag)) return;
+      if (t.notTag && [].concat(t.notTag).some(x => n.tags.includes(x))) return;
       [false, true].forEach(plural => {
         if (plural && (t.sgOnly || n.noPl)) return;
         if (!plural && t.plOnly) return;
