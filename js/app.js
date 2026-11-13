@@ -238,7 +238,7 @@ function buildSession(mode, count, kind) {
   });
   let id; do { id = newId(); } while (progress[id]);
   const now = Date.now();
-  const s = { id, mode, kind, count, questions, i: 0, results: [], byQ: {}, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
+  const s = { id, mode, kind, count, questions, i: 0, results: [], byQ: {}, front: 0, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
   Store.write('sessions/' + id, { id, mode, kind, count, createdAt: now, questions });
   saveProgress(s);
   return s;
@@ -280,6 +280,8 @@ async function resumeSession(id) {
     createdAt: q.createdAt, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
   const first = firstUnanswered(session);
   if (first < 0) session.finished = true; else session.i = first;
+  // najdalsze miejsce, do którego doszedł użytkownik: dalej przyciskiem „Dalej” nie wolno
+  session.front = Math.max(session.i, ...results.map(r => r.qi));
   stage = q.kind;
   render(); window.scrollTo(0, 0);
 }
@@ -435,10 +437,11 @@ function questionHTML() {
   <div class="nav">
     <button class="ghost" id="prev" ${s.i === 0 ? 'disabled' : ''}>‹ Wstecz</button>
     <button class="ghost" id="skip" ${done || nextU < 0 ? 'disabled' : ''}>Pomiń</button>
-    <button class="ghost" id="fwd" ${s.i + 1 >= s.count ? 'disabled' : ''}>Dalej ›</button>
+    <button class="ghost" id="fwd" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>Dalej ›</button>
   </div>
   <button class="ghost" id="quit" style="margin-top:8px">Przerwij (zapisane — można wrócić później)</button>`;
 }
+function advance(idx) { session.front = Math.max(session.front || 0, idx); goTo(idx); }
 function goTo(idx) {
   const s = session; s.i = idx; s.selAdj = s.selNoun = null; s.inAdj = s.inNoun = '';
   render(); window.scrollTo(0, 0);
@@ -485,12 +488,12 @@ function bindQuestion() {
     const nx = document.getElementById('nextU') || document.getElementById('finish'); if (nx) nx.focus();
   };
   const nu = document.getElementById('nextU');
-  if (nu) nu.onclick = () => goTo(nextUnanswered(s, s.i));
+  if (nu) nu.onclick = () => advance(nextUnanswered(s, s.i));
   const fin = document.getElementById('finish');
   if (fin) fin.onclick = () => { s.finished = true; render(); window.scrollTo(0, 0); };
   document.getElementById('prev').onclick = () => { if (s.i > 0) goTo(s.i - 1); };
-  document.getElementById('fwd').onclick = () => { if (s.i + 1 < s.count) goTo(s.i + 1); };
-  document.getElementById('skip').onclick = () => { const n = nextUnanswered(s, s.i); if (n >= 0) goTo(n); };
+  document.getElementById('fwd').onclick = () => { if (s.i + 1 <= (s.front || 0) && s.i + 1 < s.count) goTo(s.i + 1); };
+  document.getElementById('skip').onclick = () => { const n = nextUnanswered(s, s.i); if (n >= 0) advance(n); };
   document.getElementById('quit').onclick = () => { s.paused = true; render(); window.scrollTo(0, 0); };
 }
 
@@ -524,7 +527,7 @@ function finishHTML() {
 function bindFinish() {
   const s = session;
   const rs = document.getElementById('resume');
-  if (rs) rs.onclick = () => { s.paused = false; const f = s.byQ[s.i] ? nextUnanswered(s, s.i) : s.i; if (f >= 0) s.i = f; render(); };
+  if (rs) rs.onclick = () => { s.paused = false; const f = s.byQ[s.i] ? nextUnanswered(s, s.i) : s.i; if (f >= 0) { s.i = f; s.front = Math.max(s.front || 0, f); } render(); };
   const t = document.getElementById('toType');
   if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3])) : 30, 'type'); render(); window.scrollTo(0, 0); };
   document.getElementById('again').onclick = () => { stage = s.kind; session = null; render(); };
