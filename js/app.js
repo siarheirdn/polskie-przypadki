@@ -1,0 +1,681 @@
+// ===================== Хранилище =====================
+// Облако (db артефакта): progress/<ID> — ответы сессии, sessions/<ID> — вопросы сессии,
+// legacy/<ID> — старая статистика из браузера, meta/main — служебное (resetAt).
+// Если облако недоступно — то же самое в localStorage.
+const LOCAL_KEY = 'pl-cases-v2';
+const OLD_KEY = 'pl-cases-trainer-v1';
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const Store = {
+  db: null,
+  cloud: false,
+  status: '',
+  local: null,
+  async init() {
+    try {
+      const c = window.claude;
+      if (c && typeof c.use === 'function') {
+        const db = await Promise.race([c.use('db'), sleep(10000).then(() => null)]);
+        if (db) { this.db = db; this.cloud = true; }
+      }
+    } catch (e) { this.db = null; this.cloud = false; }
+    if (!this.cloud) {
+      try { this.local = JSON.parse(localStorage.getItem(LOCAL_KEY)); } catch (e) {}
+      this.local = this.local || {};
+      ['progress', 'questions', 'legacy'].forEach(k => this.local[k] = this.local[k] || {});
+      this.local.meta = this.local.meta || {};
+    }
+  },
+  saveLocal() {
+    try { localStorage.setItem(LOCAL_KEY, JSON.stringify(this.local)); }
+    catch (e) {
+      // места мало: удаляем вопросы законченных сессий
+      Object.keys(this.local.questions).forEach(id => { const p = this.local.progress[id]; if (!p || p.done) delete this.local.questions[id]; });
+      try { localStorage.setItem(LOCAL_KEY, JSON.stringify(this.local)); } catch (e2) { setStatus('Nie udało się zapisać (brak miejsca w przeglądarce).'); }
+    }
+  },
+  async listAll(col) {
+    if (!this.cloud) return Object.values(this.local[col === 'progress' ? 'progress' : 'legacy']);
+    const out = [];
+    const snap = await this.db.collection(col).get();
+    snap.docs.forEach(d => { if (d.exists) out.push(d.data()); });
+    return out;
+  },
+  async getDoc(path) {
+    if (!this.cloud) {
+      const [col, id] = path.split('/');
+      if (col === 'meta') return this.local.meta;
+      return (this.local[col === 'sessions' ? 'questions' : col] || {})[id] || null;
+    }
+    const d = await this.db.doc(path).get();
+    return d.exists ? d.data() : null;
+  },
+  pend: {}, busy: {},
+  write(path, data) {
+    if (!this.cloud) {
+      const [col, id] = path.split('/');
+      if (col === 'meta') this.local.meta = data;
+      else this.local[col === 'sessions' ? 'questions' : col][id] = data;
+      this.saveLocal();
+      return Promise.resolve();
+    }
+    this.pend[path] = data;
+    if (!this.busy[path]) return this.flush(path);
+    return Promise.resolve();
+  },
+  async flush(path) {
+    this.busy[path] = true;
+    while (this.pend[path] !== undefined) {
+      const d = this.pend[path]; delete this.pend[path];
+      try { await this.db.doc(path).set(d); }
+      catch (e) {
+        if (!e || e.code === 'unavailable') {
+          await sleep(600 + Math.random() * 800);
+          try { await this.db.doc(path).set(d); } catch (e2) { setStatus('Nie udało się zapisać — sprawdź połączenie.'); }
+        } else if (e.code === 'quota_exceeded') setStatus('Brak miejsca w chmurze — usuń stare sesje.');
+        else setStatus('Nie udało się zapisać (' + e.code + ').');
+      }
+    }
+    this.busy[path] = false;
+  },
+  async remove(path) {
+    if (!this.cloud) {
+      const [col, id] = path.split('/');
+      delete this.local[col === 'sessions' ? 'questions' : col][id];
+      this.saveLocal(); return;
+    }
+    try { await this.db.doc(path).delete(); } catch (e) { setStatus('Nie udało się usunąć.'); }
+  },
+};
+function setStatus(t) { Store.status = t; const el = document.getElementById('status'); if (el) el.textContent = t; }
+
+// ===================== Данные в памяти =====================
+let progress = {};   // id -> документ progress
+let legacies = [];
+let meta = {};
+let stats = { cells: {}, tcells: {}, log: [], tlog: [] };
+let loaded = false;
+
+const CK = kind => kind === 'type' ? 'tcells' : 'cells';
+const LK = kind => kind === 'type' ? 'tlog' : 'log';
+function totalN(kind) { return Object.values(stats[CK(kind)]).reduce((a, s) => a + s.n, 0); }
+
+const POOL = buildPool();
+const BY_CELL = {};
+POOL.forEach(p => (BY_CELL[p.cell] = BY_CELL[p.cell] || []).push(p));
+// Równomiernie: najpierw kategoria (ludzie, zwierzęta, rzeczy…), potem rzeczownik, potem zdanie
+const BY_CELL_CAT = {};
+POOL.forEach(p => { const c = NOUNS[p.ni].cat; const m = (BY_CELL_CAT[p.cell] = BY_CELL_CAT[p.cell] || {}); const k = (m[c] = m[c] || {}); (k[p.ni] = k[p.ni] || []).push(p); });
+const rnd = a => a[Math.floor(Math.random() * a.length)];
+const ikey = o => o.ti + '|' + o.ni + '|' + o.plural;
+function pickItem(cell, used) {
+  const m = BY_CELL_CAT[cell];
+  for (let t = 0; t < 40; t++) {
+    const byNoun = m[rnd(Object.keys(m))];
+    const it = rnd(byNoun[rnd(Object.keys(byNoun))]);
+    if (!used.has(ikey(it))) return it;
+  }
+  const free = BY_CELL[cell].filter(o => !used.has(ikey(o)));
+  return rnd(free.length ? free : BY_CELL[cell]);
+}
+const ALL_CELLS = [];
+// mianownik l. poj. pomijamy: forma jest taka sama jak podana
+const SKIP = c => c.startsWith('0:') && !c.endsWith(':pv') && !c.endsWith(':pn');
+for (let c = 0; c < 6; c++) GROUPS.forEach(g => { const id = c + ':' + g.id; if (!SKIP(id)) ALL_CELLS.push(id); });
+const NC = ALL_CELLS.length;
+const ROUNDS = [4, 5, 6, 7].map(r => r * NC);
+
+function recompute() {
+  const st = { cells: {}, tcells: {}, log: [], tlog: [] };
+  const resetAt = meta.resetAt || 0;
+  const cs = (k, c) => st[k][c] || (st[k][c] = { n: 0, wrong: 0, adjWrong: 0, nounWrong: 0 });
+  legacies.forEach(L => {
+    if ((L.t || 0) <= resetAt) return;
+    ['cells', 'tcells'].forEach(k => Object.entries(L[k] || {}).forEach(([c, s]) => {
+      if (SKIP(c)) return; const x = cs(k, c); x.n += s.n || 0; x.wrong += s.wrong || 0; x.adjWrong += s.adjWrong || 0; x.nounWrong += s.nounWrong || 0;
+    }));
+    ['log', 'tlog'].forEach(k => (L[k] || []).forEach(e => { if (!SKIP(e.cell)) st[k].push(Object.assign({ t: L.t }, e)); }));
+  });
+  Object.values(progress).forEach(p => {
+    const k = CK(p.kind), lk = LK(p.kind);
+    (p.r || []).forEach(r => {
+      if ((r.t || 0) <= resetAt || SKIP(r.c)) return;
+      const x = cs(k, r.c); x.n++; if (!r.ok) x.wrong++; if (!r.ao) x.adjWrong++; if (!r.no) x.nounWrong++;
+      if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, dia: r.d || undefined, t: r.t });
+    });
+  });
+  st.log.sort((a, b) => (a.t || 0) - (b.t || 0)); st.tlog.sort((a, b) => (a.t || 0) - (b.t || 0));
+  stats = st;
+}
+
+async function loadAll() {
+  try {
+    meta = (await Store.getDoc('meta/main')) || {};
+    const [ps, ls] = await Promise.all([Store.listAll('progress'), Store.listAll('legacy')]);
+    progress = {}; ps.forEach(p => { if (p && p.id) progress[p.id] = p; });
+    legacies = ls || [];
+    // однократный перенос старой статистики из этого браузера
+    let old = null; try { old = JSON.parse(localStorage.getItem(OLD_KEY)); } catch (e) {}
+    if (old && old.cells && !meta.legacyImported) {
+      const id = 'L' + newId();
+      const doc = { id, t: Date.now(), cells: old.cells || {}, tcells: old.tcells || {}, log: (old.log || []).slice(-100), tlog: (old.tlog || []).slice(-100) };
+      legacies.push(doc);
+      await Store.write('legacy/' + id, doc);
+      meta = Object.assign({}, meta, { legacyImported: true });
+      await Store.write('meta/main', meta);
+    }
+  } catch (e) {
+    setStatus('Nie udało się wczytać danych z chmury.');
+  }
+  recompute();
+  loaded = true;
+}
+
+// ===================== Сессии =====================
+const ID_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function newId() { let s = ''; for (let i = 0; i < 6; i++) s += ID_ABC[Math.floor(Math.random() * ID_ABC.length)]; return s; }
+
+let tab = 'train';
+let stage = 'choice';
+let statsKind = 'choice';
+let session = null;
+let confirmReset = false;
+let confirmDel = null;
+let openErr = '';
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
+  render();
+});
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function caseName(i) { return CASES[i].ru + ' (' + CASES[i].pl + ')'; }
+function groupName(id) { return GROUPS.find(g => g.id === id).ru; }
+const plural = (n, a, b, c) => n === 1 ? a : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? b : c;
+const pyt = n => n + ' ' + plural(n, 'pytanie', 'pytania', 'pytań');
+const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const DIA = { 'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n', 'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z' };
+const plain = s => norm(s).replace(/[ąćęłńóśźż]/g, c => DIA[c]);
+const kindName = k => k === 'type' ? 'wpisywanie' : 'wybór';
+function fmtDate(t) {
+  if (!t) return '';
+  const d = new Date(t), p = n => String(n).padStart(2, '0');
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function buildSession(mode, count, kind) {
+  let cells = [];
+  if (mode === 'test') {
+    const rounds = Math.ceil(count / NC);
+    for (let r = 0; r < rounds; r++) cells.push(...shuffle([...ALL_CELLS]));
+    cells = cells.slice(0, count);
+  } else {
+    const useBoth = kind === 'type' && totalN('type') < NC;
+    const w = ALL_CELLS.map(c => {
+      let n = 0, wr = 0;
+      [CK(kind), ...(useBoth ? ['cells'] : [])].forEach(k => { const s = stats[k][c]; if (s) { n += s.n; wr += s.wrong; } });
+      return Math.pow((wr + 1) / (n + 2), 2);
+    });
+    const sum = w.reduce((a, b) => a + b, 0);
+    for (let k = 0; k < count; k++) {
+      let r = Math.random() * sum, idx = 0;
+      while (r > w[idx] && idx < w.length - 1) { r -= w[idx]; idx++; }
+      cells.push(ALL_CELLS[idx]);
+    }
+    for (let k = 1; k < cells.length; k++) if (cells[k] === cells[k - 1]) {
+      const j = cells.findIndex((c, m) => m > k && c !== cells[k]); if (j > 0) [cells[k], cells[j]] = [cells[j], cells[k]];
+    }
+  }
+  const used = new Set();
+  const questions = cells.map(cell => {
+    const item = pickItem(cell, used);
+    used.add(item.ti + '|' + item.ni + '|' + item.plural);
+    const q = makeQuestion(item);
+    return { cell: q.cell, caseIdx: q.caseIdx, group: q.group, sentence: q.sentence, base: q.base, plural: q.plural,
+      adjAnswer: q.adjAnswer, nounAnswer: q.nounAnswer, adjOptions: q.adjOptions, nounOptions: q.nounOptions, hint: q.hint,
+      ti: q.ti, ni: q.ni, ex: exampleFor(q, BY_CELL[cell]) };
+  });
+  let id; do { id = newId(); } while (progress[id]);
+  const now = Date.now();
+  const s = { id, mode, kind, count, questions, i: 0, results: [], byQ: {}, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
+  Store.write('sessions/' + id, { id, mode, kind, count, createdAt: now, questions });
+  saveProgress(s);
+  return s;
+}
+
+function firstUnanswered(s) { for (let k = 0; k < s.count; k++) if (!s.byQ[k]) return k; return -1; }
+function nextUnanswered(s, from) { for (let k = 1; k <= s.count; k++) { const idx = (from + k) % s.count; if (!s.byQ[idx]) return idx; } return -1; }
+function exampleOf(q) {
+  if (q.ex === undefined) {
+    const pool = BY_CELL[q.cell] || [];
+    const noun = q.base.split(' ').pop();
+    q.ex = exampleFor({ ni: pool.length ? -1 : -1, ti: -1 }, pool.filter(p => NOUNS[p.ni].sg[0] !== noun));
+  }
+  return q.ex;
+}
+
+function progressDoc(s) {
+  return {
+    id: s.id, mode: s.mode, kind: s.kind, count: s.count, createdAt: s.createdAt, updatedAt: Date.now(),
+    done: s.results.length >= s.count, r: s.results.map(x => x.raw),
+  };
+}
+function saveProgress(s) {
+  const doc = progressDoc(s);
+  progress[s.id] = doc;
+  Store.write('progress/' + s.id, doc);
+}
+
+async function resumeSession(id) {
+  id = String(id || '').trim().toUpperCase();
+  openErr = '';
+  const p = progress[id] || await Store.getDoc('progress/' + id);
+  const q = await Store.getDoc('sessions/' + id);
+  if (!p || !q || !q.questions) { openErr = `Nie znaleziono sesji ${esc(id)}.`; render(); return; }
+  progress[id] = p;
+  const results = (p.r || []).map((raw, k) => ({ cell: raw.c, ok: raw.ok, adjOk: raw.ao, nounOk: raw.no, diaOnly: !!raw.d, gotA: raw.ga, gotN: raw.gn, qi: raw.qi != null ? raw.qi : k, raw }));
+  const byQ = {}; results.forEach(r => byQ[r.qi] = r);
+  session = { id, mode: q.mode, kind: q.kind, count: q.count, questions: q.questions, i: 0, results, byQ,
+    createdAt: q.createdAt, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
+  const first = firstUnanswered(session);
+  if (first < 0) session.finished = true; else session.i = first;
+  stage = q.kind;
+  render(); window.scrollTo(0, 0);
+}
+
+// ===================== Рендер =====================
+function render() {
+  const v = document.getElementById('view');
+  if (!loaded) { v.innerHTML = '<div class="card muted">Wczytywanie…</div>'; return; }
+  if (tab === 'stats') { v.innerHTML = statsHTML() + footer(); bindStats(); return; }
+  if (!session) { v.innerHTML = startHTML() + footer(); bindStart(); return; }
+  if (session.finished || session.paused) { v.innerHTML = finishHTML() + footer(); bindFinish(); return; }
+  v.innerHTML = questionHTML() + footer(); bindQuestion();
+}
+function footer() {
+  return `<div class="muted" style="margin-top:14px">${Store.cloud ? 'Wyniki zapisują się w chmurze — dostępne na każdym urządzeniu.' : 'Wyniki zapisują się tylko w tej przeglądarce.'}
+  <div id="status" style="color:var(--bad)">${esc(Store.status)}</div></div>`;
+}
+
+function stageSwitch(id, cur) {
+  return `<div class="seg" id="${id}">
+    <button data-k="choice" class="${cur === 'choice' ? 'on' : ''}">Etap 1 — wybór</button>
+    <button data-k="type" class="${cur === 'type' ? 'on' : ''}">Etap 2 — wpisywanie</button></div>`;
+}
+
+let selSess = null;
+function unfinishedHTML() {
+  const list = Object.values(progress).filter(p => !p.done).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  if (!list.length) return openErr ? `<div class="card"><div class="fix">${openErr}</div></div>` : '';
+  if (!list.find(p => p.id === selSess)) selSess = list[0].id;
+  return `
+  <div class="card">
+    <div class="lbl">Niedokończone sesje (${list.length})</div>
+    <div class="sessrow">
+      <select id="sessSel" class="sesssel">
+        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${kindName(p.kind)} · ${(p.r || []).length} z ${p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
+      </select>
+      <button class="ibtn go" id="contBtn" title="Kontynuuj" aria-label="Kontynuuj">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
+      ${confirmDel === selSess
+        ? `<button class="ibtn del on" id="delYes" title="Kliknij jeszcze raz, aby usunąć" aria-label="Potwierdź usunięcie">
+            <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`
+        : `<button class="ibtn del" id="delBtn" title="Usuń" aria-label="Usuń">
+            <svg viewBox="0 0 24 24" width="21" height="21"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10 10.5v6M14 10.5v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`}
+    </div>
+    ${confirmDel === selSess ? '<div class="fix" style="margin-top:6px">Usunąć tę sesję? Kliknij ✓, aby potwierdzić.</div>' : ''}
+    ${openErr ? `<div class="fix">${openErr}</div>` : ''}
+  </div>`;
+}
+
+function startHTML() {
+  const total = totalN(stage), anyTotal = totalN('choice') + totalN('type');
+  const descr = stage === 'choice'
+    ? 'Wybierasz przymiotnik i rzeczownik spośród czterech wariantów.'
+    : 'Wpisujesz obie formy samodzielnie. Wielkość liter nie ma znaczenia, polskie znaki (ą, ę, ł, ó, ś, ż…) — mają.';
+  return `
+  ${unfinishedHTML()}
+  ${stageSwitch('stageSw', stage)}
+  <div class="muted" style="margin:-4px 0 12px">${descr}</div>
+  <div class="card">
+    <div class="lbl">Test — wszystkie pola po równo</div>
+    <div class="muted">${NC} pól: 6 przypadków × 7 grup rodzaju i liczby, bez mianownika w liczbie pojedynczej (tam forma się nie zmienia). Każda runda przechodzi przez wszystkie pola po razie, w losowej kolejności.</div>
+    <div style="margin-top:8px">
+      ${ROUNDS.map((n, k) => [n, ['4 rundy', '5 rund', '6 rund', '7 rund'][k]]).map(([n, t]) =>
+        `<label class="opt"><input type="radio" name="cnt" value="${n}" ${n === (stage === 'choice' ? ROUNDS[2] : ROUNDS[0]) ? 'checked' : ''}> ${pyt(n)} <span class="muted">(${t})</span></label>`).join('')}
+    </div>
+    <button class="big" id="startTest">Rozpocznij test</button>
+  </div>
+  <div class="card">
+    <div class="lbl">Słabe punkty</div>
+    <div class="muted">30 pytań, najczęściej z pól, w których jest najwięcej błędów.${total < NC ? ' Najlepiej najpierw przejść przynajmniej jedną rundę testu na tym etapie.' : ''}</div>
+    <button class="big" id="startWeak" ${anyTotal === 0 ? 'disabled' : ''}>Ćwicz słabe punkty</button>
+  </div>
+  <div class="muted">Odpowiedzi w statystykach: wybór — ${totalN('choice')}, wpisywanie — ${totalN('type')}.</div>`;
+}
+function bindSeg(id, set) {
+  document.querySelectorAll('#' + id + ' button').forEach(b => b.onclick = () => { set(b.dataset.k); render(); });
+}
+function bindStart() {
+  bindSeg('stageSw', k => stage = k);
+  document.getElementById('startTest').onclick = () => {
+    const n = +document.querySelector('input[name=cnt]:checked').value;
+    session = buildSession('test', n, stage); render();
+  };
+  document.getElementById('startWeak').onclick = () => { session = buildSession('weak', 30, stage); render(); };
+  const sel = document.getElementById('sessSel');
+  if (sel) {
+    sel.onchange = () => { selSess = sel.value; confirmDel = null; render(); };
+    document.getElementById('contBtn').onclick = () => resumeSession(selSess);
+    const db_ = document.getElementById('delBtn'); if (db_) db_.onclick = () => { confirmDel = selSess; render(); };
+    const dy = document.getElementById('delYes'); if (dy) dy.onclick = async () => {
+      const id = selSess; confirmDel = null; selSess = null;
+      delete progress[id]; recompute(); render();
+      await Store.remove('progress/' + id); await Store.remove('sessions/' + id);
+    };
+  }
+}
+
+function questionHTML() {
+  const s = session, q = s.questions[s.i], typing = s.kind === 'type';
+  const res = s.byQ[s.i], done = !!res;
+  const curA = done ? res.gotA : (typing ? s.inAdj : s.selAdj), curN = done ? res.gotN : (typing ? s.inNoun : s.selNoun);
+  const w = Math.max(q.base.length * 0.85, 10, done ? (q.adjAnswer.length + q.nounAnswer.length + 1) : 0);
+  const pa = typing && !done ? norm(curA) : curA, pn = typing && !done ? norm(curN) : curN;
+  const pick = (pa || pn) ? esc(pa || '…') + ' ' + esc(pn || '…') : '&nbsp;';
+  const filled = `<span class="slot"><span class="stop">${esc(q.base)}</span><span class="gap ${done ? '' : 'pick'}" id="gap" style="min-width:${w}ch">${done ? esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) : pick}</span><span class="sbot num ${q.plural ? 'pl' : 'sg'}">${q.plural ? 'liczba mnoga' : 'liczba pojedyncza'}</span></span>`;
+  const sentence = esc(q.sentence).replace('___', filled);
+  const btn = (opt, kind) => {
+    const sel = kind === 'adj' ? curA : curN, ans = kind === 'adj' ? q.adjAnswer : q.nounAnswer;
+    let cls = 'choice';
+    if (done) { if (opt === ans) cls += ' ok'; else if (opt === sel) cls += ' bad'; }
+    else if (opt === sel) cls += ' sel';
+    return `<button class="${cls}" data-kind="${kind}" data-v="${esc(opt)}" ${done ? 'disabled' : ''}>${esc(opt)}</button>`;
+  };
+  const inp = (id, val, ok, ans, ph) => `
+    <input class="tin ${done ? (ok ? 'ok' : 'bad') : ''}" id="${id}" value="${esc(val || '')}" placeholder="${ph}"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" lang="pl" ${done ? 'disabled' : ''}>
+    ${done && !ok ? `<div class="fix">poprawnie: <b>${esc(ans)}</b></div>` : ''}`;
+  const body = typing ? `
+      <div class="lbl">Przymiotnik</div>${inp('inAdj', curA, res && res.adjOk, q.adjAnswer, 'przymiotnik')}
+      <div class="lbl">Rzeczownik</div>${inp('inNoun', curN, res && res.nounOk, q.nounAnswer, 'rzeczownik')}` : `
+      <div class="lbl">Przymiotnik</div><div class="row">${q.adjOptions.map(o => btn(o, 'adj')).join('')}</div>
+      <div class="lbl">Rzeczownik</div><div class="row">${q.nounOptions.map(o => btn(o, 'noun')).join('')}</div>`;
+  const ready = typing ? (norm(s.inAdj) && norm(s.inNoun)) : (s.selAdj && s.selNoun);
+  const answered = s.results.length, correct = s.results.filter(x => x.ok).length;
+  const nextU = nextUnanswered(s, s.i);
+  const rules = rulesFor(CASES[q.caseIdx].id, q.group);
+  const ex = done ? exampleOf(q) : null;
+  return `
+  <div class="muted" style="display:flex;justify-content:space-between"><span>Sesja <b class="sid">${esc(s.id)}</b> · ${typing ? 'Wpisywanie' : 'Wybór'} · pytanie ${s.i + 1} z ${s.count}</span><span>Dobrze: ${correct} z ${answered}</span></div>
+  <div class="progress"><div style="width:${(answered / s.count) * 100}%"></div></div>
+  <div class="card">
+    <div class="sent">${sentence}</div>
+    ${body}
+    ${done ? `
+      <div class="fb ${res.ok ? 'ok' : 'bad'}">
+        <div class="verdict">${res.ok ? '✓ Dobrze!' : '✗ Źle'}</div>
+        <div class="cap">Poprawna odpowiedź:</div>
+        <div class="right">${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</div>
+        <div class="full">${esc(q.sentence).replace('___', '<b>' + esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) + '</b>')}</div>
+        ${res.ok ? '' : `<div class="cap" style="margin-top:8px">Twoja odpowiedź:</div><div class="yours">${[[res.gotA, res.adjOk], [res.gotN, res.nounOk]].map(([w, ok]) => ok ? esc(w) : '<s>' + esc(w) + '</s>').join(' ')}</div>`}
+        ${res.diaOnly ? '<div style="margin-top:6px"><b>Błąd tylko w polskich znakach</b> — sama forma jest poprawna.</div>' : ''}
+        <div class="why">
+          <div class="cap">Dlaczego:</div>
+          <div><b>${esc(CASES[q.caseIdx].ru)}</b> <span class="muted">(${esc(CASES[q.caseIdx].pl)})</span></div><div>${esc(q.hint)}</div>
+          <div class="cap" style="margin-top:8px">Końcówki · ${esc(groupName(q.group))}:</div>
+          <div class="endings"><div><span class="muted">przymiotnik</span> ${esc(rules.adj)}</div><div><span class="muted">rzeczownik</span> ${esc(rules.noun)}</div></div>
+          ${ex ? `<div class="cap" style="margin-top:8px">Inny przykład:</div><div>${esc(ex.sentence).replace('___', '<b>' + esc(ex.phrase) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
+        </div>
+      </div>
+      ${nextU >= 0 ? `<button class="big" id="nextU">Następne pytanie</button>` : `<button class="big" id="finish">Wyniki</button>`}`
+    : `<button class="big" id="check" ${ready ? '' : 'disabled'}>Sprawdź</button>`}
+  </div>
+  <div class="nav">
+    <button class="ghost" id="prev" ${s.i === 0 ? 'disabled' : ''}>‹ Wstecz</button>
+    <button class="ghost" id="skip" ${done || nextU < 0 ? 'disabled' : ''}>Pomiń</button>
+    <button class="ghost" id="fwd" ${s.i + 1 >= s.count ? 'disabled' : ''}>Dalej ›</button>
+  </div>
+  <button class="ghost" id="quit" style="margin-top:8px">Przerwij (zapisane — można wrócić później)</button>`;
+}
+function goTo(idx) {
+  const s = session; s.i = idx; s.selAdj = s.selNoun = null; s.inAdj = s.inNoun = '';
+  render(); window.scrollTo(0, 0);
+}
+function bindQuestion() {
+  const s = session, q = s.questions[s.i], done = !!s.byQ[s.i];
+  document.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+    if (done) return;
+    if (b.dataset.kind === 'adj') s.selAdj = b.dataset.v; else s.selNoun = b.dataset.v;
+    render();
+  });
+  const check = document.getElementById('check');
+  const ia = document.getElementById('inAdj'), inn = document.getElementById('inNoun');
+  if (ia && !done) {
+    const upd = () => {
+      s.inAdj = ia.value; s.inNoun = inn.value; check.disabled = !(norm(s.inAdj) && norm(s.inNoun));
+      const g = document.getElementById('gap'), pa = norm(s.inAdj), pn = norm(s.inNoun);
+      if (g) g.textContent = (pa || pn) ? (pa || '…') + ' ' + (pn || '…') : ' ';
+    };
+    ia.oninput = inn.oninput = upd;
+    ia.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inn.focus(); } };
+    inn.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); if (!check.disabled) check.click(); } };
+    if (!s.inAdj) ia.focus();
+  }
+  if (check) check.onclick = () => {
+    let adjOk, nounOk, diaOnly = false, gotA, gotN;
+    if (s.kind === 'type') {
+      gotA = norm(s.inAdj); gotN = norm(s.inNoun);
+      adjOk = gotA === q.adjAnswer; nounOk = gotN === q.nounAnswer;
+      diaOnly = (!adjOk || !nounOk) && plain(gotA) === plain(q.adjAnswer) && plain(gotN) === plain(q.nounAnswer);
+    } else {
+      gotA = s.selAdj; gotN = s.selNoun;
+      adjOk = gotA === q.adjAnswer; nounOk = gotN === q.nounAnswer;
+    }
+    const ok = adjOk && nounOk;
+    const raw = { qi: s.i, c: q.cell, ok, ao: adjOk, no: nounOk, ga: gotA, gn: gotN, t: Date.now() };
+    if (diaOnly) raw.d = true;
+    if (!ok) { raw.s = q.sentence; raw.b = q.base + (q.plural ? ' → l. mn.' : ' → l. poj.'); raw.rt = q.adjAnswer + ' ' + q.nounAnswer; }
+    const r = { qi: s.i, cell: q.cell, ok, adjOk, nounOk, diaOnly, gotA, gotN, raw };
+    s.results.push(r); s.byQ[s.i] = r;
+    saveProgress(s);
+    recompute();
+    render();
+    const nx = document.getElementById('nextU') || document.getElementById('finish'); if (nx) nx.focus();
+  };
+  const nu = document.getElementById('nextU');
+  if (nu) nu.onclick = () => goTo(nextUnanswered(s, s.i));
+  const fin = document.getElementById('finish');
+  if (fin) fin.onclick = () => { s.finished = true; render(); window.scrollTo(0, 0); };
+  document.getElementById('prev').onclick = () => { if (s.i > 0) goTo(s.i - 1); };
+  document.getElementById('fwd').onclick = () => { if (s.i + 1 < s.count) goTo(s.i + 1); };
+  document.getElementById('skip').onclick = () => { const n = nextUnanswered(s, s.i); if (n >= 0) goTo(n); };
+  document.getElementById('quit').onclick = () => { s.paused = true; render(); window.scrollTo(0, 0); };
+}
+
+function finishHTML() {
+  const s = session, r = s.results, ok = r.filter(x => x.ok).length;
+  const finished = r.length >= s.count;
+  const byCase = CASES.map((c, i) => { const a = r.filter(x => +x.cell.split(':')[0] === i); return { name: c.ru, n: a.length, ok: a.filter(x => x.ok).length }; });
+  const byGroup = GROUPS.map(g => { const a = r.filter(x => x.cell.split(':')[1] === g.id); return { name: g.ru, n: a.length, ok: a.filter(x => x.ok).length }; });
+  const line = x => x.n ? `<li>${esc(x.name)}: ${x.ok} z ${x.n}</li>` : '';
+  const dia = r.filter(x => x.diaOnly).length;
+  const nextCount = Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3]));
+  return `
+  <div class="card">
+    <div class="lbl">${finished ? 'Wynik' : 'Sesja przerwana'} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
+    <div class="score">${ok} z ${r.length}</div>
+    <div class="muted">${r.length ? Math.round(ok / r.length * 100) : 0}% dobrze. Błędy w przymiotnikach: ${r.filter(x => !x.adjOk).length}, w rzeczownikach: ${r.filter(x => !x.nounOk).length}.${dia ? ` W tym tylko w polskich znakach: ${dia}.` : ''}</div>
+    ${finished ? '' : `<div style="margin-top:8px">Odpowiedziano na ${r.length} z ${s.count}. Postęp jest zapisany — sesję <b class="sid">${esc(s.id)}</b> możesz dokończyć później z listy na ekranie startowym.</div>
+      <button class="big" id="resume">Kontynuuj teraz</button>`}
+  </div>
+  ${finished && s.kind === 'choice' ? `
+  <div class="card">
+    <div class="lbl">Dalej — etap 2</div>
+    <div class="muted">Te same pola, nowe zdania, ale obie formy trzeba wpisać samodzielnie.</div>
+    <button class="big" id="toType">Rozpocznij etap 2 (${pyt(s.mode === 'test' ? nextCount : 30)})</button>
+  </div>` : ''}
+  <div class="card"><div class="lbl">Według przypadków</div><ul class="list">${byCase.map(line).join('')}</ul></div>
+  <div class="card"><div class="lbl">Według rodzaju i liczby</div><ul class="list">${byGroup.map(line).join('')}</ul></div>
+  <button class="big" id="again" style="background:var(--muted)">Ekran startowy</button>
+  <button class="big" id="toStats" style="background:var(--muted)">Statystyki ogólne</button>`;
+}
+function bindFinish() {
+  const s = session;
+  const rs = document.getElementById('resume');
+  if (rs) rs.onclick = () => { s.paused = false; const f = s.byQ[s.i] ? nextUnanswered(s, s.i) : s.i; if (f >= 0) s.i = f; render(); };
+  const t = document.getElementById('toType');
+  if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3])) : 30, 'type'); render(); window.scrollTo(0, 0); };
+  document.getElementById('again').onclick = () => { stage = s.kind; session = null; render(); };
+  document.getElementById('toStats').onclick = () => { statsKind = s.kind; session = null; document.querySelector('.tab[data-tab=stats]').click(); };
+}
+
+// ===================== Статистика =====================
+function color(rate, n) {
+  if (!n) return 'var(--line)';
+  const h = 130 - Math.min(1, rate * 2) * 130;
+  return `hsla(${h}, 60%, 50%, .35)`;
+}
+function historyHTML() {
+  const list = Object.values(progress).filter(p => p.done).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 30);
+  if (!list.length) return '';
+  return `<div class="card"><div class="lbl">Historia sesji</div>${list.map(p => {
+    const r = p.r || [], ok = r.filter(x => x.ok).length;
+    return `<div class="sess"><div><b class="sid">${esc(p.id)}</b> · ${kindName(p.kind)}<br><span class="muted">${fmtDate(p.updatedAt)}</span></div><div><b>${ok} z ${r.length}</b> <span class="muted">(${r.length ? Math.round(ok / r.length * 100) : 0}%)</span></div></div>`;
+  }).join('')}</div>`;
+}
+function statsHTML() {
+  const cells = stats[CK(statsKind)];
+  const total = Object.values(cells).reduce((a, s) => a + s.n, 0);
+  const wrong = Object.values(cells).reduce((a, s) => a + s.wrong, 0);
+  const rows = GROUPS.map(g => `<tr><th class="r">${g.short}</th>${CASES.map((c, i) => {
+    if (SKIP(i + ':' + g.id)) return '<td style="background:transparent"></td>';
+    const s = cells[i + ':' + g.id]; const n = s ? s.n : 0, w = s ? s.wrong : 0;
+    return `<td style="background:${color(n ? w / n : 0, n)}">${n ? Math.round(w / n * 100) + '%' : '—'}<small>${n ? w + '/' + n : ''}</small></td>`;
+  }).join('')}</tr>`).join('');
+  const caseTot = CASES.map((c, i) => { let n = 0, w = 0; GROUPS.forEach(g => { const s = cells[i + ':' + g.id]; if (s) { n += s.n; w += s.wrong; } }); return { name: c.ru, n, w }; });
+  const grpTot = GROUPS.map(g => { let n = 0, w = 0; CASES.forEach((c, i) => { const s = cells[i + ':' + g.id]; if (s) { n += s.n; w += s.wrong; } }); return { name: g.ru, n, w }; });
+  const pct = x => x.n ? Math.round(x.w / x.n * 100) + '% błędów (' + x.w + ' z ' + x.n + ')' : 'brak odpowiedzi';
+  const weak = ALL_CELLS.map(c => ({ c, s: cells[c] })).filter(x => x.s && x.s.n >= 2 && x.s.wrong > 0)
+    .sort((a, b) => (b.s.wrong / b.s.n) - (a.s.wrong / a.s.n) || b.s.n - a.s.n).slice(0, 8);
+  const cellName = c => { const [ci, g] = c.split(':'); return CASES[+ci].ru + ', ' + groupName(g); };
+  const adjW = Object.values(cells).reduce((a, s) => a + s.adjWrong, 0), nounW = Object.values(cells).reduce((a, s) => a + s.nounWrong, 0);
+  const dia = statsKind === 'type' ? stats.tlog.filter(e => e.dia).length : 0;
+  return `
+  ${stageSwitch('statSw', statsKind)}
+  <div class="card">
+    <div class="lbl">Łącznie</div>
+    <div>Odpowiedzi: ${total}, z błędem: ${total ? Math.round(wrong / total * 100) : 0}%. Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}.${dia ? ` Tylko w polskich znakach: ${dia}.` : ''}</div>
+  </div>
+  <div class="card">
+    <div class="lbl">Błędy według pól</div>
+    <table class="grid"><tr><th></th>${CASES.map(c => `<th>${c.short}</th>`).join('')}</tr>${rows}</table>
+    <div class="legend">W polu — odsetek odpowiedzi z błędem oraz „błędy / odpowiedzi”. Zielony — dobrze, czerwony — słaby punkt.</div>
+  </div>
+  <div class="card"><div class="lbl">Najsłabsze pola</div>${weak.length ? `<ul class="list">${weak.map(x => `<li>${esc(cellName(x.c))} — ${x.s.wrong} z ${x.s.n}</li>`).join('')}</ul>` : '<div class="muted">Na razie za mało danych (potrzebne są co najmniej 2 odpowiedzi w polu).</div>'}</div>
+  <div class="card"><div class="lbl">Według przypadków</div><ul class="list">${caseTot.map(x => `<li>${esc(x.name)}: ${pct(x)}</li>`).join('')}</ul></div>
+  <div class="card"><div class="lbl">Według rodzaju i liczby</div><ul class="list">${grpTot.map(x => `<li>${esc(x.name)}: ${pct(x)}</li>`).join('')}</ul></div>
+  ${historyHTML()}
+  ${backupHTML()}
+  <div class="card">
+    <div class="lbl">Przekaż statystyki do czatu</div>
+    <div class="muted">Kopiowane są statystyki obu etapów. Wklej tekst do rozmowy — na jego podstawie można przygotować ćwiczenia.</div>
+    <button class="big" id="copy">Kopiuj</button>
+    <textarea id="exp" class="hidden" readonly></textarea>
+  </div>
+  <div class="row">
+    ${confirmReset ? `<button class="ghost" id="resetYes" style="color:var(--bad)">Tak, wyzeruj</button><button class="ghost" id="resetNo">Anuluj</button>`
+      : `<button class="ghost" id="reset">Wyzeruj statystyki</button>`}
+  </div>
+  <div class="muted" style="margin-top:6px">Zerowanie liczy statystyki od nowa; historia sesji zostaje.</div>`;
+}
+// ---- Kopia zapasowa (tylko gdy wyniki są w przeglądarce)
+let backupMsg = '';
+function backupHTML() {
+  if (Store.cloud) return '';
+  return `<div class="card">
+    <div class="lbl">Kopia zapasowa</div>
+    <div class="muted">Wyniki są zapisane tylko w tej przeglądarce. Pobierz plik, żeby ich nie stracić albo przenieść na inne urządzenie. Wczytanie pliku łączy wyniki z tymi, które już tu są.</div>
+    <div class="row" style="margin-top:8px">
+      <button class="ghost" id="bkDown">Pobierz plik</button>
+      <label class="ghost filebtn">Wczytaj plik<input type="file" id="bkUp" accept=".json,application/json" hidden></label>
+    </div>
+    ${backupMsg ? `<div style="margin-top:8px">${esc(backupMsg)}</div>` : ''}
+  </div>`;
+}
+function downloadBackup() {
+  const L = Store.local;
+  const data = { app: 'polskie-przypadki', version: 1, exportedAt: new Date().toISOString(),
+    progress: L.progress, questions: L.questions, legacy: L.legacy, meta: L.meta };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'polskie-przypadki-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+async function importBackup(file) {
+  try {
+    const d = JSON.parse(await file.text());
+    if (!d || d.app !== 'polskie-przypadki') throw new Error('format');
+    const L = Store.local; let added = 0, updated = 0;
+    Object.values(d.progress || {}).forEach(p => {
+      if (!p || !p.id) return;
+      const cur = L.progress[p.id];
+      if (!cur || (p.updatedAt || 0) > (cur.updatedAt || 0)) {
+        cur ? updated++ : added++;
+        L.progress[p.id] = p;
+        if (d.questions && d.questions[p.id]) L.questions[p.id] = d.questions[p.id];
+      }
+    });
+    Object.values(d.legacy || {}).forEach(x => { if (x && x.id && !L.legacy[x.id]) L.legacy[x.id] = x; });
+    const m = d.meta || {};
+    L.meta = Object.assign({}, L.meta, { resetAt: Math.max(L.meta.resetAt || 0, m.resetAt || 0), legacyImported: !!(L.meta.legacyImported || m.legacyImported) });
+    Store.saveLocal();
+    await loadAll();
+    backupMsg = `Wczytano: nowe sesje — ${added}, zaktualizowane — ${updated}.`;
+  } catch (e) {
+    backupMsg = 'To nie jest plik z wynikami tego trenera.';
+  }
+  render();
+}
+
+function exportText() {
+  const lines = ['Statystyki: polskie przypadki'];
+  const cellName = c => { const [ci, g] = c.split(':'); return CASES[+ci].ru + ' / ' + GROUPS.find(x => x.id === g).ru; };
+  [['choice', 'Etap 1 — wybór'], ['type', 'Etap 2 — wpisywanie']].forEach(([k, title]) => {
+    lines.push('', '== ' + title + ' ==');
+    ALL_CELLS.forEach(c => { const s = stats[CK(k)][c]; if (s && s.n) lines.push(`${cellName(c)}: błędy ${s.wrong}/${s.n} (przym. ${s.adjWrong}, rzecz. ${s.nounWrong})`); });
+    const lg = stats[LK(k)].slice(-50);
+    if (lg.length) {
+      lines.push('Ostatnie błędy (zdanie | podano | poprawnie | moja odpowiedź):');
+      lg.forEach(e => lines.push(`${e.s} | ${e.base} | ${e.right} | ${e.got}${e.dia ? ' (tylko polskie znaki)' : ''}`));
+    }
+  });
+  return lines.join('\n');
+}
+function bindStats() {
+  bindSeg('statSw', k => statsKind = k);
+  const bd = document.getElementById('bkDown'); if (bd) bd.onclick = downloadBackup;
+  const bu = document.getElementById('bkUp'); if (bu) bu.onchange = () => { if (bu.files && bu.files[0]) importBackup(bu.files[0]); };
+  document.getElementById('copy').onclick = async () => {
+    const t = exportText(), ta = document.getElementById('exp');
+    try { await navigator.clipboard.writeText(t); document.getElementById('copy').textContent = 'Skopiowano'; }
+    catch (e) { ta.classList.remove('hidden'); ta.value = t; ta.focus(); ta.select(); document.getElementById('copy').textContent = 'Zaznacz tekst poniżej i skopiuj'; }
+  };
+  const r = document.getElementById('reset'); if (r) r.onclick = () => { confirmReset = true; render(); };
+  const y = document.getElementById('resetYes'); if (y) y.onclick = () => {
+    meta = Object.assign({}, meta, { resetAt: Date.now() }); Store.write('meta/main', meta);
+    confirmReset = false; recompute(); render();
+  };
+  const n = document.getElementById('resetNo'); if (n) n.onclick = () => { confirmReset = false; render(); };
+}
+
+render();
+Store.init().then(loadAll).then(render);
+
+// Aplikacja offline (tylko na zwykłej stronie, nie w podglądzie claude.ai)
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !window.claude) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
