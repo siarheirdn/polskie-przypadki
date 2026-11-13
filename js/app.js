@@ -411,36 +411,42 @@ function questionHTML() {
   const rules = rulesFor(CASES[q.caseIdx].id, q.group);
   const ex = done ? exampleOf(q) : null;
   return `
-  <div class="qhead"><span>Pytanie <b>${s.i + 1}</b> z ${s.count}</span><span>Dobrze: <b>${correct}</b> z ${answered}</span></div>
-  <div class="progress"><div style="width:${(answered / s.count) * 100}%"></div></div>
-  <div class="card">
+  <div class="qhead">
+    <div class="qpos"><span>Pytanie <b>${s.i + 1}</b> z ${s.count}</span>
+      <div class="progress"><div style="width:${(answered / s.count) * 100}%"></div></div></div>
+    <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
+  </div>
+  <div class="card qcard">
     <div class="sent">${sentence}</div>
     ${body}
     ${done ? `
-      <div class="fb ${res.ok ? 'ok' : 'bad'}">
+      <div class="fb ${res.ok ? 'ok' : 'bad'}" id="fb">
         <div class="verdict">${res.ok ? 'Dobrze!' : 'Źle'}</div>
-        <div class="cap">Poprawna odpowiedź:</div>
-        <div class="right">${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</div>
-        <div class="full">${esc(q.sentence).replace('___', '<b>' + esc(q.adjAnswer) + ' ' + esc(q.nounAnswer) + '</b>')}</div>
-        ${res.ok ? '' : `<div class="cap" style="margin-top:8px">Twoja odpowiedź:</div><div class="yours">${[[res.gotA, res.adjOk], [res.gotN, res.nounOk]].map(([w, ok]) => ok ? esc(w) : '<s>' + esc(w) + '</s>').join(' ')}</div>`}
-        ${res.diaOnly ? '<div style="margin-top:6px"><b>Błąd tylko w polskich znakach</b> — sama forma jest poprawna.</div>' : ''}
+        ${res.ok ? '' : `<div class="cap">Poprawnie:</div><div class="right">${esc(q.adjAnswer)} ${esc(q.nounAnswer)}</div>
+        <div class="cap">Twoja odpowiedź:</div><div class="yours">${[[res.gotA, res.adjOk], [res.gotN, res.nounOk]].map(([w, ok]) => ok ? esc(w) : '<s>' + esc(w) + '</s>').join(' ')}</div>`}
+        ${res.diaOnly ? '<div class="note">Błąd tylko w polskich znakach — sama forma jest poprawna.</div>' : ''}
         <div class="why">
-          <div class="cap">Dlaczego:</div>
-          <div><b>${esc(CASES[q.caseIdx].ru)}</b> <span class="muted">(${esc(CASES[q.caseIdx].pl)})</span></div><div>${esc(q.hint)}</div>
-          <div class="cap" style="margin-top:8px">Końcówki (${esc(groupName(q.group))}):</div>
-          <div class="endings"><div><span class="muted">przymiotnik</span> ${esc(rules.adj)}</div><div><span class="muted">rzeczownik</span> ${esc(rules.noun)}</div></div>
-          ${ex ? `<div class="cap" style="margin-top:8px">Inny przykład:</div><div>${esc(ex.sentence).replace('___', '<b>' + esc(ex.phrase) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
+          <div class="why-case"><b>${esc(CASES[q.caseIdx].ru)}</b> <span class="muted">${esc(CASES[q.caseIdx].pl)}</span></div>
+          <div>${esc(q.hint)}</div>
+          <div class="endings">
+            <div class="cap">Końcówki: ${esc(groupName(q.group))}</div>
+            <div><span class="muted">przymiotnik</span><span>${esc(rules.adj)}</span></div>
+            <div><span class="muted">rzeczownik</span><span>${esc(rules.noun)}</span></div>
+          </div>
+          ${ex ? `<div class="cap">Inny przykład</div><div class="ex">${esc(ex.sentence).replace('___', '<b>' + esc(ex.phrase) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
         </div>
-      </div>
-      ${nextU >= 0 ? `<button class="big" id="nextU">Następne pytanie</button>` : `<button class="big" id="finish">Wyniki</button>`}`
-    : `<button class="big" id="check" ${ready ? '' : 'disabled'}>Sprawdź</button>`}
+      </div>` : ''}
   </div>
-  <div class="nav">
-    <button class="ghost" id="prev" ${s.i === 0 ? 'disabled' : ''}>‹ Wstecz</button>
-    <button class="ghost" id="skip" ${done || nextU < 0 ? 'disabled' : ''}>Pomiń</button>
-    <button class="ghost" id="fwd" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>Dalej ›</button>
-  </div>
-  <button class="ghost" id="quit" style="margin-top:8px">Przerwij — postęp jest zapisany</button>`;
+  <button class="linkbtn" id="quit">Przerwij sesję — postęp jest zapisany</button>
+  <div class="actions">
+    <button class="ibtn nav-i" id="prev" title="Poprzednie pytanie" aria-label="Poprzednie pytanie" ${s.i === 0 ? 'disabled' : ''}>
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    ${done
+      ? (nextU >= 0 ? `<button class="big" id="nextU">Następne pytanie</button>` : `<button class="big" id="finish">Zobacz wyniki</button>`)
+      : `<button class="ghost skip" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń</button><button class="big" id="check" ${ready ? '' : 'disabled'}>Sprawdź</button>`}
+    <button class="ibtn nav-i" id="fwd" title="Następne pytanie z odpowiedzią" aria-label="Dalej" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>`;
 }
 function advance(idx) { session.front = Math.max(session.front || 0, idx); goTo(idx); }
 function goTo(idx) {
@@ -486,7 +492,9 @@ function bindQuestion() {
     saveProgress(s);
     recompute();
     render();
-    const nx = document.getElementById('nextU') || document.getElementById('finish'); if (nx) nx.focus();
+    const nx = document.getElementById('nextU') || document.getElementById('finish'); if (nx) nx.focus({ preventScroll: true });
+    const fb = document.getElementById('fb');
+    if (fb) fb.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   };
   const nu = document.getElementById('nextU');
   if (nu) nu.onclick = () => advance(nextUnanswered(s, s.i));
@@ -494,7 +502,7 @@ function bindQuestion() {
   if (fin) fin.onclick = () => { s.finished = true; render(); window.scrollTo(0, 0); };
   document.getElementById('prev').onclick = () => { if (s.i > 0) goTo(s.i - 1); };
   document.getElementById('fwd').onclick = () => { if (s.i + 1 <= (s.front || 0) && s.i + 1 < s.count) goTo(s.i + 1); };
-  document.getElementById('skip').onclick = () => { const n = nextUnanswered(s, s.i); if (n >= 0) advance(n); };
+  const sk = document.getElementById('skip'); if (sk) sk.onclick = () => { const n = nextUnanswered(s, s.i); if (n >= 0) advance(n); };
   document.getElementById('quit').onclick = () => { s.paused = true; render(); window.scrollTo(0, 0); };
 }
 
