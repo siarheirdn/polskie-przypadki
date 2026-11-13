@@ -220,3 +220,12 @@ textarea { width: 100%; height: 140px; font: 12px/1.4 var(--sans); background: v
 .fsz button:hover:not(:disabled) { color: var(--ink); }
 .fsz button:disabled { opacity: .35; cursor: default; }
 .fsz .big-a { font-size: 16px; }
+
+/* Podsumowanie i zwijane sekcje statystyk */
+.sum { display: flex; align-items: center; gap: 16px; }
+.sum-big { font: 600 34px/1 var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; }
+details.more { margin: 14px 0 0; }
+details.more > summary { cursor: pointer; list-style: none; padding: 12px 2px; color: var(--pen); font-weight: 600; display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: ''; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
+details.more[open] > summary::before { transform: rotate(45deg); }

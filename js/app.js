@@ -230,7 +230,7 @@ function planHTML(where) {
   else body = P.items.map((p, i) => {
     const t = planText(p);
     return `<div class="prob">
-      <div class="ptop"><div class="ptitle">${esc(t.title)}</div><div class="pstat">${p.n - p.w} z ${p.n}</div></div>
+      <div class="ptop"><div class="ptitle">${esc(t.title)}</div><div class="pstat">${p.w} ${plural(p.w, 'błąd', 'błędy', 'błędów')} z ${p.n}</div></div>
       <div class="pdesc">${esc(t.desc)}</div>
       ${mistakeHTML(p.last)}
       <button class="ghost drill" data-drill="${i}">Ćwicz to (15 pytań)</button>
@@ -827,30 +827,32 @@ function statsHTML() {
   const cellName = c => { const [ci, g] = c.split(':'); return CASES[+ci].ru + ', ' + groupName(g); };
   const adjW = Object.values(cells).reduce((a, s) => a + s.adjWrong, 0), nounW = Object.values(cells).reduce((a, s) => a + s.nounWrong, 0);
   const dia = statsKind === 'type' ? stats.tlog.filter(e => e.dia).length : 0;
+  const good = total - wrong;
   return `
   ${stageSwitch('statSw', statsKind)}
-  ${planHTML('stats')}
-  <h2 class="sub">Szczegóły</h2>
-  <div class="card">
-    <div class="lbl">Łącznie</div>
-    <div>Odpowiedzi: ${total}, z błędem: ${total ? Math.round(wrong / total * 100) : 0}%. Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}.${dia ? ` Tylko w polskich znakach: ${dia}.` : ''}</div>
-  </div>
+  ${total ? `<div class="card sum">
+    <div class="sum-big">${Math.round(good / total * 100)}%</div>
+    <div><div><b>${good}</b> dobrze z <b>${total}</b> odpowiedzi</div>
+      <div class="muted">Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}${dia ? `, tylko w polskich znakach: ${dia}` : ''}.</div></div>
+  </div>` : `<div class="card muted">Brak odpowiedzi na tym etapie. Rozwiąż kilka pytań, a tu pojawi się podsumowanie.</div>`}
   ${caseTreeHTML(cells)}
-  ${analysisHTML(statsKind)}
-  <div class="card"><div class="lbl">Najsłabsze pola</div>${weak.length ? `<ul class="list">${weak.map(x => `<li>${esc(cellName(x.c))} — ${x.s.wrong} z ${x.s.n}</li>`).join('')}</ul>` : '<div class="muted">Na razie za mało danych (potrzebne są co najmniej 2 odpowiedzi w polu).</div>'}</div>
-  ${historyHTML()}
-  ${backupHTML()}
-  <div class="card">
-    <div class="lbl">Przekaż statystyki do czatu</div>
-    <div class="muted">Kopiowane są statystyki obu etapów. Wklej tekst do rozmowy — na jego podstawie można przygotować ćwiczenia.</div>
-    <button class="big" id="copy">Kopiuj</button>
-    <textarea id="exp" class="hidden" readonly></textarea>
-  </div>
-  <div class="row">
-    ${confirmReset ? `<button class="ghost" id="resetYes" style="color:var(--bad)">Tak, wyzeruj</button><button class="ghost" id="resetNo">Anuluj</button>`
-      : `<button class="ghost" id="reset">Wyzeruj statystyki</button>`}
-  </div>
-  <div class="muted" style="margin-top:6px">Zerowanie liczy statystyki od nowa; historia sesji zostaje.</div>`;
+  ${planHTML('stats')}
+  <details class="more"><summary>Więcej analizy</summary>${analysisHTML(statsKind) || '<div class="card muted">Na razie za mało błędów do analizy.</div>'}</details>
+  <details class="more"><summary>Historia sesji, kopia zapasowa, zerowanie</summary>
+    ${historyHTML()}
+    ${backupHTML()}
+    <div class="card">
+      <div class="lbl">Przekaż statystyki do czatu</div>
+      <div class="muted">Kopiowane są statystyki obu etapów. Wklej tekst do rozmowy — na jego podstawie można przygotować ćwiczenia.</div>
+      <button class="big" id="copy">Kopiuj</button>
+      <textarea id="exp" class="hidden" readonly></textarea>
+    </div>
+    <div class="row">
+      ${confirmReset ? `<button class="ghost" id="resetYes" style="color:var(--red)">Tak, wyzeruj</button><button class="ghost" id="resetNo">Anuluj</button>`
+        : `<button class="ghost" id="reset">Wyzeruj statystyki</button>`}
+    </div>
+    <div class="muted" style="margin-top:6px">Zerowanie liczy statystyki od nowa; historia sesji zostaje.</div>
+  </details>`;
 }
 // ---- Kopia zapasowa (tylko gdy wyniki są w przeglądarce)
 let backupMsg = '';
@@ -991,7 +993,7 @@ function bindStats() {
     try { await navigator.clipboard.writeText(t); document.getElementById('copy').textContent = 'Skopiowano'; }
     catch (e) { ta.classList.remove('hidden'); ta.value = t; ta.focus(); ta.select(); document.getElementById('copy').textContent = 'Zaznacz tekst poniżej i skopiuj'; }
   };
-  const r = document.getElementById('reset'); if (r) r.onclick = () => { confirmReset = true; render(); };
+  const r = document.getElementById('reset'); if (r) r.onclick = () => { confirmReset = true; render(); const d = document.querySelectorAll('details.more')[1]; if (d) d.open = true; };
   const y = document.getElementById('resetYes'); if (y) y.onclick = () => {
     meta = Object.assign({}, meta, { resetAt: Date.now() }); Store.write('meta/main', meta);
     confirmReset = false; recompute(); render();
