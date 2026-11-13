@@ -62,16 +62,7 @@ function makeQuestion(item) {
   const t = TEMPLATES[item.ti], n = NOUNS[item.ni], c = t.c, plural = item.plural;
   const ca = correctAdj(item.adj, n, c, plural);
   const cn = (plural ? n.pl : n.sg)[CI[c]];
-  // Дистракторы прилагательного: сначала формы того же рода/числа, потом остальные
-  const F = adjForms(item.adj);
-  let same;
-  if (plural) same = Object.values(F.p).filter(Boolean);
-  else same = Object.values(n.g === 'f' ? F.f : n.g === 'n' ? F.n : F.m);
-  const all = uniq([...Object.values(F.m), ...Object.values(F.f), ...Object.values(F.n), ...Object.values(F.p).filter(Boolean)]);
-  const adjD = pick3(uniq(same).filter(x => x !== ca), all.filter(x => x !== ca));
-  const sameN = uniq(plural ? n.pl : n.sg).filter(x => x !== cn);
-  const allN = uniq([...n.sg, ...n.pl]).filter(x => x !== cn);
-  const nounD = pick3(sameN, allN);
+  const { adjD, nounD } = distractors(t, n, item.adj, c, plural, ca, cn);
   let sentence = (plural && t.pl) ? t.pl : t.sg;
   sentence = sentence.replace('{z}', /^[sśzźż][^aeiouyąęó]/i.test(ca) ? 'ze' : 'z');
   sentence = sentence.replace('{w}', /^[wf][^aeiouyąęó]/i.test(ca) ? 'we' : 'w');
@@ -84,6 +75,64 @@ function makeQuestion(item) {
     adjOptions: shuffle([ca, ...adjD]), nounOptions: shuffle([cn, ...nounD]),
     hint: t.hint, ti: item.ti, ni: item.ni,
   };
+}
+// ===== Dystraktory: całe spójne pary z przypadków, które łatwo pomylić =====
+// Domyślnie: z czym myli się dany przypadek.
+const CONFUSE = { N: ['A', 'G'], G: ['A', 'I', 'L'], D: ['A', 'G', 'L'], A: ['G', 'N', 'I'], I: ['L', 'G', 'A'], L: ['I', 'D', 'A'] };
+// Pułapki zależne od zdania (rosyjska logika, przyimki z dwoma przypadkami).
+const TRAPS = [
+  [/dziękować|pomagać|pożyczyć|oddać|dać komu|dawać|wysłać|przedstawić|czytać|kupić komu|przyglądać|oprzeć|dzięki/, ['A', 'G']],
+  [/szukać|używać|potrzebować|przeczeni|nie ma|nie było|nie mamy|bać się|pilnować|kawałek|lubić/, ['A']],
+  [/czekać na/, ['G']],
+  [/zadowolony|kanapka z/, ['I']],
+  [/jeździć na/, ['A']],
+  [/z \(skąd/, ['I']],
+  [/z kim|z czym|spotkać się|zaprzyjaźnić/, ['G']],
+  [/do \(dokąd/, ['A']],
+  [/o kim|o czym/, ['A']],
+  [/przed|za \(gdzie/, ['A', 'L']],
+  [/w \(gdzie|w czym|w \(w czym/, ['A']],
+  [/środek transportu/, ['L']],
+  [/opiekować się|zajmować się|zachwycać|częstować|dzielić/, ['L', 'A']],
+];
+function trapCases(t) {
+  for (const [re, cs] of TRAPS) if (re.test(t.hint)) return cs.filter(x => x !== t.c);
+  return [];
+}
+function adjFor(adj, g, c, plural, vir) {
+  const F = adjForms(adj);
+  if (plural) { if (c === 'N') return vir ? F.p.Nv : F.p.Nn; if (c === 'A') return vir ? F.p.Av : F.p.An; return F.p[c]; }
+  if (g === 'f') return F.f[c];
+  if (g === 'n') return F.n[c];
+  if (c === 'A') return g === 'mi' ? F.m.Ain : F.m.Aan;
+  return F.m[c];
+}
+function distractors(t, n, adj, c, plural, ca, cn) {
+  const vir = n.g === 'mp';
+  const baseA = adjFor(adj, n.g, 'N', false), baseN = n.sg[0];
+  const pairs = [];
+  const push = (cs, pl, g) => cs.forEach(x => {
+    if (pl && n.noPl) return;
+    pairs.push([adjFor(adj, g || n.g, x, pl, vir), (pl ? n.pl : n.sg)[CI[x]]]);
+  });
+  const trap = trapCases(t), conf = CONFUSE[c].filter(x => !trap.includes(x));
+  push(trap, plural); push(conf, plural);          // ten sam numer: pułapki, potem typowe pomyłki
+  push([c], !plural);                              // ten sam przypadek, druga liczba (formy-homonimy)
+  push(trap, !plural); push(conf, !plural);
+  const other = n.g === 'f' ? 'mi' : (n.g === 'n' ? 'ma' : (/a$/.test(baseN) ? 'f' : 'n'));
+  if (!plural) push([c, ...trap], false, other);   // pułapka rodzaju (kolega → młodej, kotka → młodego)
+  push(['N', 'G', 'D', 'A', 'I', 'L'], plural); push(['N', 'G', 'D', 'A', 'I', 'L'], !plural);
+  const A = [], N = [];
+  const okA = x => x && x !== ca && !A.includes(x) && (x !== baseA || ca === baseA);
+  const okN = x => x && x !== cn && !N.includes(x) && (x !== baseN || cn === baseN);
+  for (const [a, nn] of pairs) {
+    if (A.length < 3 && okA(a)) A.push(a);
+    if (N.length < 3 && okN(nn)) N.push(nn);
+    if (A.length === 3 && N.length === 3) break;
+  }
+  // za mało form (rzadko) — wtedy także forma podstawowa
+  for (const [a, nn] of pairs) { if (A.length < 3 && a && a !== ca && !A.includes(a)) A.push(a); if (N.length < 3 && nn && nn !== cn && !N.includes(nn)) N.push(nn); }
+  return { adjD: A, nounD: N };
 }
 function pick3(primary, fallback) {
   const p = shuffle([...primary]).slice(0, 3);
