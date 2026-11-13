@@ -119,6 +119,8 @@ function nearMissNoun(n, c, plural, cn) {
   } else if (!plural && masc && !lemmaA && c === 'D') {
     if (/owi$/.test(cn)) f = cn.slice(0, -3) + 'u';        // telefonowi → telefonu
     else if (/u$/.test(cn)) f = cn.slice(0, -1) + 'owi';   // psu → psowi
+  } else if (!plural && c === 'A' && /ę$/.test(cn) && !/ę$/.test(n.sg[0])) {
+    f = cn.slice(0, -1) + 'u';                             // gruszkę → gruszku (ros. грушу), kolegę → kolegu
   } else if (plural && masc && c === 'G' && /[yi]$/.test(cn) && !/ów$/.test(cn)) {
     f = cn.slice(0, -1) + 'ów';                            // lekarzy → lekarzów, nauczycieli → nauczycielów
   } else if (plural && c === 'I' && NEAR_MISS_PL_I[cn]) {
