@@ -290,7 +290,7 @@ async function backfill() {
 }
 
 function recompute() {
-  const st = { cells: {}, tcells: {}, log: [], tlog: [], all: [], an: { choice: emptyAn(), type: emptyAn() } };
+  const st = { cells: {}, tcells: {}, log: [], tlog: [], all: [], allK: { choice: [], type: [] }, an: { choice: emptyAn(), type: emptyAn() } };
   const resetAt = meta.resetAt || 0;
   const cs = (k, c) => st[k][c] || (st[k][c] = { n: 0, wrong: 0, adjWrong: 0, nounWrong: 0 });
   legacies.forEach(L => {
@@ -306,7 +306,7 @@ function recompute() {
       if ((r.t || 0) <= resetAt || SKIP(r.c)) return;
       const x = cs(k, r.c); x.n++; if (!r.ok) x.wrong++; if (!r.ao) x.adjWrong++; if (!r.no) x.nounWrong++;
       if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, dia: r.d || undefined, t: r.t });
-      st.all.push(r);
+      st.all.push(r); (st.allK[p.kind === 'type' ? 'type' : 'choice']).push(r);
       const A = st.an[p.kind === 'type' ? 'type' : 'choice'];
       (A.hist[r.c] = A.hist[r.c] || []).push([r.t || 0, !!r.ok]);
       if (r.rl) { const x = (A.rules[r.rl] = A.rules[r.rl] || { n: 0, w: 0 }); x.n++; if (!r.ok) x.w++; }
@@ -716,6 +716,11 @@ function questionHTML() {
       ? (nextU >= 0 ? `<button class="big" id="nextU">Następne pytanie ${ICON.arrow}</button>` : `<button class="big" id="finish">Zobacz wyniki ${ICON.arrow}</button>`)
       : `<button class="big" id="check" ${ready ? '' : 'disabled'}>Sprawdź ${ICON.arrow}</button>`}
     <button class="ibtn nav-i" id="fwd" title="Następne pytanie z odpowiedzią" aria-label="Dalej" ${s.i + 1 > (s.front || 0) || s.i + 1 >= s.count ? 'disabled' : ''}>${ICON.next}</button>
+  </div>
+  <div class="qstats">
+    <h2 class="sub">Postęp w tej sesji</h2>
+    ${trendChartHTML(s.results, 'Dynamika')}
+    ${s.results.length ? miniStatsHTML(sessionCells(s), 'Błędy według przypadków, %', 'ta sesja') : ''}
   </div>`;
 }
 function advance(idx) { session.front = Math.max(session.front || 0, idx); goTo(idx); }
@@ -858,6 +863,7 @@ function statsHTML() {
     <div><div><b>${good}</b> dobrze z <b>${total}</b> odpowiedzi</div>
       <div class="muted">Błędy w przymiotniku: ${adjW}, w rzeczowniku: ${nounW}${dia ? `, tylko w polskich znakach: ${dia}` : ''}.</div></div>
   </div>` : `<div class="card muted">Brak odpowiedzi na tym etapie. Rozwiąż kilka pytań, a tu pojawi się podsumowanie.</div>`}
+  ${(stats.allK[statsKind] || []).length >= 3 ? trendChartHTML(stats.allK[statsKind].map(r => ({ ok: r.ok, raw: r })), 'Dynamika — wszystkie odpowiedzi', stats.allK[statsKind].length > 200 ? 25 : stats.allK[statsKind].length > 60 ? 20 : 10) : ''}
   ${caseTreeHTML(cells)}
   ${planHTML('stats')}
   <details class="more"><summary>Więcej analizy</summary>${analysisHTML(statsKind) || '<div class="card muted">Na razie za mało błędów do analizy.</div>'}</details>
@@ -926,6 +932,56 @@ async function importBackup(file) {
     backupMsg = 'To nie jest plik z wynikami tego trenera.';
   }
   render();
+}
+
+// Mini-statystyka na ekranie startowym: jedna linia na przypadek, małe paski
+function sessionCells(s) {
+  const m = {};
+  s.results.forEach(r => { const x = (m[r.cell] = m[r.cell] || { n: 0, wrong: 0 }); x.n++; if (!r.ok) x.wrong++; });
+  return m;
+}
+// Wykres dynamiki: odsetek dobrych odpowiedzi w ostatnich 10, wzdłuż sesji; pod spodem każda odpowiedź (zielona / czerwona)
+function trendChartHTML(results, title, WINp) {
+  const rs = [...results].sort((a, b) => (a.raw.t || 0) - (b.raw.t || 0));
+  if (rs.length < 3) return `<div class="card mini"><div class="mtitle"><span class="lbl">${esc(title)}</span></div><div class="muted">Wykres pojawi się po kilku odpowiedziach.</div></div>`;
+  const W = 320, H = 92, top = 8, chartH = 58, tickY = 76, N = rs.length, WIN = WINp || 10;
+  const pts = rs.map((r, k) => { const from = Math.max(0, k - WIN + 1); const sl = rs.slice(from, k + 1); return sl.filter(x => x.ok).length / sl.length; });
+  const x = k => N === 1 ? W / 2 : 4 + k * (W - 8) / (N - 1);
+  const y = v => top + (1 - v) * chartH;
+  const line = pts.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const area = `${x(0).toFixed(1)},${y(0)} ${line} ${x(N - 1).toFixed(1)},${y(0)}`;
+  const tw = Math.max(1, Math.min(6, (W - 8) / N - 1));
+  const ticks = rs.map((r, k) => `<rect x="${(x(k) - tw / 2).toFixed(1)}" y="${tickY}" width="${tw.toFixed(1)}" height="10" rx="1" class="${r.ok ? 't-ok' : 't-bad'}"/>`).join('');
+  const last = pts[N - 1], first10 = rs.slice(0, Math.min(WIN, N)), firstV = first10.filter(r => r.ok).length / first10.length;
+  const delta = Math.round((last - firstV) * 100);
+  return `<div class="card mini"><div class="mtitle"><span class="lbl">${esc(title)}</span><span class="muted">ostatnie ${Math.min(WIN, N)}: <b class="${last >= 0.8 ? 'up' : last < 0.5 ? 'down' : ''}">${Math.round(last * 100)}%</b>${N > WIN ? ` (${delta >= 0 ? '+' : ''}${delta} od początku)` : ''}</span></div>
+    <svg class="trend" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Odsetek dobrych odpowiedzi w ostatnich ${WIN}">
+      <line x1="0" x2="${W}" y1="${y(0.5)}" y2="${y(0.5)}" class="g50"/><line x1="0" x2="${W}" y1="${y(0.8)}" y2="${y(0.8)}" class="g80"/>
+      <polygon points="${area}" class="tarea"/><polyline points="${line}" class="tline"/>
+      ${ticks}
+    </svg>
+    <div class="legend">Linia — odsetek dobrych odpowiedzi w ostatnich ${WIN}; przerywane linie: 50% i 80%. Pod spodem każda odpowiedź: zielona dobra, czerwona zła.</div></div>`;
+}
+function miniStatsHTML(cells, title, sub) {
+  const COLS = [['lp', 'l. pojedyncza', null], ['lm', 'l. mnoga', null], ['os', 'męskoosobowy (l. poj.)', 'mp'], ['zw', 'męskozwierzęcy', 'ma'], ['rz', 'męskorzeczowy', 'mi'], ['ż', 'żeński', 'f'], ['nij', 'nijaki', 'n']];
+  const cell = (x, title) => {
+    const lv = level(x), w = x.n ? Math.max(8, Math.round(x.r * 100)) : 0;
+    return `<td class="${lv}" title="${esc(title)}: ${x.n ? x.w + ' błędów z ' + x.n : 'brak odpowiedzi'}">${x.n ? Math.round(x.r * 100) : '–'}<span class="mbar"><i style="width:${w}%"></i></span></td>`;
+  };
+  const rows = CASES.map((c, i) => {
+    const sgIds = SG_G.map(([g]) => i + ':' + g).filter(id => !SKIP(id)), plIds = PL_G.map(([g]) => i + ':' + g);
+    const all = agg(cells, [...sgIds, ...plIds]);
+    if (!all.n) return null;
+    const tds = COLS.map(([k, title, g]) => {
+      const ids = k === 'lp' ? sgIds : k === 'lm' ? plIds : sgIds.filter(id => id.endsWith(':' + g));
+      return cell(agg(cells, ids), `${c.ru}, ${title}`);
+    }).join('');
+    return { all, html: `<tr><th class="mcase">${esc(c.ru)}</th><td class="mall ${level(all)}">${Math.round(all.r * 100)}%<span class="mbar"><i style="width:${Math.max(6, Math.round(all.r * 100))}%"></i></span></td>${tds}</tr>` };
+  }).filter(Boolean).sort((a, b) => (b.all.n >= 3) - (a.all.n >= 3) || b.all.r - a.all.r);
+  if (!rows.length) return '';
+  return `<div class="card mini"><div class="mtitle"><span class="lbl">${esc(title)}</span><span class="muted">${esc(sub || '')}</span></div>
+    <table class="mtab"><tr><th></th><th>razem</th>${COLS.map(([k, t]) => `<th title="${esc(t)}">${k}</th>`).join('')}</tr>${rows.map(r => r.html).join('')}</table>
+    <div class="legend">lp / lm — liczba pojedyncza / mnoga; os, zw, rz — rodzaj męski: osobowy, zwierzęcy, rzeczowy; ż — żeński; nij — nijaki (l. poj.).</div></div>`;
 }
 
 // Przypadek → liczba → rodzaj: gdzie dokładnie są błędy

@@ -234,3 +234,32 @@ details.more[open] > summary::before { transform: rotate(45deg); }
 .rule { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 4px; }
 .end { color: var(--amber); font-weight: 700; }
 .vright b .end { color: var(--amber); }
+
+/* Mini-statystyka */
+.mini { padding: 13px 13px 11px; }
+.mtitle { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.mtitle .lbl { margin: 0; font-size: 14px; }
+table.mtab { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+table.mtab th { font-size: 11px; font-weight: 500; color: var(--muted); text-align: center; padding: 0 0 4px; }
+table.mtab tr:first-child th:first-child { width: 84px; }
+table.mtab tr:first-child th:nth-child(2) { width: 46px; }
+table.mtab th.mcase { text-align: left; font-size: 13px; font-weight: 600; color: var(--ink); padding: 6px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.mtab td { text-align: center; font-size: 11.5px; color: var(--muted); padding: 6px 2px; border-top: 1px solid var(--line); }
+table.mtab th.mcase { border-top: 1px solid var(--line); }
+table.mtab tr:nth-child(2) td, table.mtab tr:nth-child(2) th.mcase { border-top: 0; }
+table.mtab td.mall { font-size: 13px; font-weight: 700; }
+.mbar { display: block; height: 3px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin: 3px auto 0; width: 80%; }
+.mbar i { display: block; height: 100%; border-radius: 2px; background: var(--green); }
+table.mtab td.bad { color: var(--red); } table.mtab td.mid { color: var(--amber); } table.mtab td.good { color: var(--green); } table.mtab td.few { color: var(--muted); opacity: .75; }
+td.bad .mbar i { background: var(--red); } td.mid .mbar i { background: var(--amber); } td.few .mbar i { background: var(--line-2); }
+
+/* Wykres dynamiki */
+.qstats { margin-top: 26px; }
+.qstats h2.sub { margin-top: 0; }
+svg.trend { width: 100%; height: 96px; display: block; margin: 4px 0 2px; }
+svg.trend .tline { fill: none; stroke: var(--pen); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+svg.trend .tarea { fill: var(--pen); opacity: .12; }
+svg.trend .g50, svg.trend .g80 { stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+svg.trend rect.t-ok { fill: var(--green); opacity: .85; }
+svg.trend rect.t-bad { fill: var(--red); opacity: .9; }
+.mtitle b.up { color: var(--green); } .mtitle b.down { color: var(--red); }
