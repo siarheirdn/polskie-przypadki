@@ -384,15 +384,16 @@ function fmtDate(t) {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function buildSession(mode, count, kind) {
+function buildSession(mode, count, kind, only) {
   let cells = [];
+  const CELLS = only && only.length ? only : ALL_CELLS;
   if (mode === 'test') {
-    const rounds = Math.ceil(count / NC);
-    for (let r = 0; r < rounds; r++) cells.push(...shuffle([...ALL_CELLS]));
+    const rounds = Math.ceil(count / CELLS.length);
+    for (let r = 0; r < rounds; r++) cells.push(...shuffle([...CELLS]));
     cells = cells.slice(0, count);
   } else {
     const useBoth = kind === 'type' && totalN('type') < NC;
-    const w = ALL_CELLS.map(c => {
+    const w = CELLS.map(c => {
       let n = 0, wr = 0;
       [CK(kind), ...(useBoth ? ['cells'] : [])].forEach(k => { const s = stats[k][c]; if (s) { n += s.n; wr += s.wrong; } });
       return Math.pow((wr + 1) / (n + 2), 2) * (cellState(kind, c) === 'done' ? 0.15 : 1);
@@ -401,7 +402,7 @@ function buildSession(mode, count, kind) {
     for (let k = 0; k < count; k++) {
       let r = Math.random() * sum, idx = 0;
       while (r > w[idx] && idx < w.length - 1) { r -= w[idx]; idx++; }
-      cells.push(ALL_CELLS[idx]);
+      cells.push(CELLS[idx]);
     }
     for (let k = 1; k < cells.length; k++) if (cells[k] === cells[k - 1]) {
       const j = cells.findIndex((c, m) => m > k && c !== cells[k]); if (j > 0) [cells[k], cells[j]] = [cells[j], cells[k]];
@@ -413,7 +414,12 @@ function buildSession(mode, count, kind) {
     used.add(item.ti + '|' + item.ni + '|' + item.plural);
     return item;
   });
-  return sessionFromItems(items, mode, kind);
+  return sessionFromItems(items, mode, kind, only && only.length < NC ? filtTitleOf(only) : undefined, only && only.length < NC ? only : undefined);
+}
+function filtTitleOf(cells) {
+  const cs = [...new Set(cells.map(c => +c.split(':')[0]))].sort();
+  const pl = cells.some(isPlCell), sg = cells.some(c => !isPlCell(c));
+  return (cs.length === 6 ? 'wszystkie przypadki' : cs.map(i => CASES[i].ru).join(', ')) + (pl && sg ? '' : pl ? ' · l. mn.' : ' · l. poj.');
 }
 function shapeQuestion(item) {
   const q = makeQuestion(item);
@@ -421,12 +427,12 @@ function shapeQuestion(item) {
     adjAnswer: q.adjAnswer, nounAnswer: q.nounAnswer, adjOptions: q.adjOptions, nounOptions: q.nounOptions, hint: q.hint,
     ti: q.ti, ni: q.ni, ex: exampleFor(q, BY_CELL[q.cell]) };
 }
-function sessionFromItems(items, mode, kind, title) {
+function sessionFromItems(items, mode, kind, title, cells) {
   const questions = items.map(shapeQuestion), count = questions.length;
   let id; do { id = newId(); } while (progress[id]);
   const now = Date.now();
-  const s = { id, mode, kind, count, title, questions, i: 0, results: [], byQ: {}, front: 0, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
-  Store.write('sessions/' + id, { id, mode, kind, count, title: title || null, createdAt: now, questions });
+  const s = { id, mode, kind, count, title, cells, questions, i: 0, results: [], byQ: {}, front: 0, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
+  Store.write('sessions/' + id, { id, mode, kind, count, title: title || null, cells: cells || null, createdAt: now, questions });
   saveProgress(s);
   return s;
 }
@@ -470,7 +476,7 @@ async function resumeSession(id) {
   progress[id] = p;
   const results = (p.r || []).map((raw, k) => ({ cell: raw.c, ok: raw.ok, adjOk: raw.ao, nounOk: raw.no, diaOnly: !!raw.d, gotA: raw.ga, gotN: raw.gn, qi: raw.qi != null ? raw.qi : k, raw }));
   const byQ = {}; results.forEach(r => byQ[r.qi] = r);
-  session = { id, mode: q.mode, kind: q.kind, count: q.count, title: q.title || null, questions: q.questions, i: 0, results, byQ,
+  session = { id, mode: q.mode, kind: q.kind, count: q.count, title: q.title || null, cells: q.cells || undefined, questions: q.questions, i: 0, results, byQ,
     createdAt: q.createdAt, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
   const first = firstUnanswered(session);
   if (first < 0) session.finished = true; else session.i = first;
@@ -505,6 +511,47 @@ function stageSwitch(id, cur) {
 }
 
 let selSess = null;
+// Wybór przypadków i liczby dla nowej sesji (zapamiętywany w przeglądarce)
+let filt = { cases: [0, 1, 2, 3, 4, 5], nums: ['sg', 'pl'] };
+try { const f = JSON.parse(localStorage.getItem('pp-filter') || 'null'); if (f && Array.isArray(f.cases) && Array.isArray(f.nums)) filt = f; } catch (e) {}
+const saveFilt = () => { try { localStorage.setItem('pp-filter', JSON.stringify(filt)); } catch (e) {} };
+const isPlCell = c => /:(pv|pn)$/.test(c);
+function activeCells() {
+  return ALL_CELLS.filter(c => filt.cases.includes(+c.split(':')[0]) && filt.nums.includes(isPlCell(c) ? 'pl' : 'sg'));
+}
+const filtFull = () => activeCells().length === NC;
+function filtTitle() {
+  if (filtFull()) return null;
+  const cs = filt.cases.length === 6 ? 'wszystkie przypadki' : [...filt.cases].sort().map(i => CASES[i].ru).join(', ');
+  const ns = filt.nums.length === 2 ? '' : filt.nums[0] === 'sg' ? ' · l. poj.' : ' · l. mn.';
+  return cs + ns;
+}
+function countsFor(n) {
+  if (!n) return [];
+  const out = [];
+  (n === NC ? ROUNDS : [40, 80, 120, 200]).forEach(T => { const c = Math.max(1, Math.round(T / n)) * n; if (!out.includes(c)) out.push(c); });
+  return out;
+}
+function filterHTML() {
+  const cells = activeCells();
+  return `<div class="filt">
+    <div class="flbl">Przypadki</div>
+    <div class="fchips" id="fCases">${CASES.map((c, i) => `<button class="fchip ${filt.cases.includes(i) ? 'on' : ''}" data-i="${i}" aria-pressed="${filt.cases.includes(i)}">${c.ru}</button>`).join('')}</div>
+    <div class="flbl">Liczba</div>
+    <div class="fchips" id="fNums"><button class="fchip ${filt.nums.includes('sg') ? 'on' : ''}" data-n="sg" aria-pressed="${filt.nums.includes('sg')}">pojedyncza</button><button class="fchip ${filt.nums.includes('pl') ? 'on' : ''}" data-n="pl" aria-pressed="${filt.nums.includes('pl')}">mnoga</button></div>
+    <div class="muted fnote">${cells.length
+      ? (cells.length === NC ? `Wszystkie ${NC} pól.` : `${cells.length} ${plural(cells.length, 'pole', 'pola', 'pól')} z ${NC}. Runda = ${cells.length} ${plural(cells.length, 'pytanie', 'pytania', 'pytań')}.`)
+      : (filt.cases.length && filt.nums.length ? 'Mianownik jest tylko w liczbie mnogiej — dodaj liczbę mnogą albo inny przypadek.' : 'Wybierz przynajmniej jeden przypadek i jedną liczbę.')}</div>
+  </div>`;
+}
+function bindFilter() {
+  document.querySelectorAll('#fCases .fchip').forEach(b => b.onclick = () => {
+    const i = +b.dataset.i; filt.cases = filt.cases.includes(i) ? filt.cases.filter(x => x !== i) : [...filt.cases, i].sort(); saveFilt(); render();
+  });
+  document.querySelectorAll('#fNums .fchip').forEach(b => b.onclick = () => {
+    const n = b.dataset.n; filt.nums = filt.nums.includes(n) ? filt.nums.filter(x => x !== n) : [...filt.nums, n]; saveFilt(); render();
+  });
+}
 function unfinishedHTML() {
   const list = Object.values(progress).filter(p => !p.done).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   if (!list.length) return openErr ? `<div class="card"><div class="fix">${openErr}</div></div>` : '';
@@ -530,7 +577,7 @@ function unfinishedHTML() {
 }
 
 function startHTML() {
-  const total = totalN(stage), anyTotal = totalN('choice') + totalN('type');
+  const total = totalN(stage), anyTotal = totalN('choice') + totalN('type'), cells = activeCells();
   const descr = stage === 'choice'
     ? 'Wybierasz przymiotnik i rzeczownik spośród czterech wariantów.'
     : 'Wpisujesz obie formy samodzielnie. Wielkość liter nie ma znaczenia, polskie znaki (ą, ę, ł, ó, ś, ż…) — mają.';
@@ -540,19 +587,20 @@ function startHTML() {
   <h2 class="sub">Nowa sesja</h2>
   ${stageSwitch('stageSw', stage)}
   <div class="muted" style="margin:-4px 0 12px">${descr}</div>
+  ${filterHTML()}
   <div class="card">
-    <div class="lbl">Test: wszystkie pola po równo</div>
-    <div class="muted">${NC} pól: 6 przypadków × 7 grup rodzaju i liczby, bez mianownika w liczbie pojedynczej (tam forma się nie zmienia). Każda runda przechodzi przez wszystkie pola po razie, w losowej kolejności.</div>
+    <div class="lbl">Test: wybrane pola po równo</div>
+    <div class="muted">Pole = przypadek × grupa rodzaju i liczby (bez mianownika w liczbie pojedynczej — tam forma się nie zmienia). Każda runda przechodzi przez wszystkie wybrane pola po razie, w losowej kolejności.</div>
     <div style="margin-top:8px">
-      ${ROUNDS.map((n, k) => [n, ['4 rundy', '5 rund', '6 rund', '7 rund'][k]]).map(([n, t]) =>
-        `<label class="opt"><input type="radio" name="cnt" value="${n}" ${n === (stage === 'choice' ? ROUNDS[2] : ROUNDS[0]) ? 'checked' : ''}> ${pyt(n)} <span class="muted">(${t})</span></label>`).join('')}
+      ${(() => { const n = cells.length, cs = countsFor(n), def = cs[stage === 'choice' ? Math.min(2, cs.length - 1) : 0];
+        return cs.map(c => `<label class="opt"><input type="radio" name="cnt" value="${c}" ${c === def ? 'checked' : ''}> ${pyt(c)} <span class="muted">(${c / n} ${plural(c / n, 'runda', 'rundy', 'rund')})</span></label>`).join(''); })()}
     </div>
-    <button class="big" id="startTest">Rozpocznij test</button>
+    <button class="big" id="startTest" ${cells.length ? '' : 'disabled'}>Rozpocznij test</button>
   </div>
   <div class="card">
     <div class="lbl">Słabe punkty</div>
-    <div class="muted">30 pytań, najczęściej z pól, w których jest najwięcej błędów.${total < NC ? ' Najlepiej najpierw przejść przynajmniej jedną rundę testu na tym etapie.' : ''}</div>
-    <button class="big" id="startWeak" ${anyTotal === 0 ? 'disabled' : ''}>Ćwicz słabe punkty</button>
+    <div class="muted">30 pytań z wybranych pól, najczęściej z tych, w których jest najwięcej błędów.${total < NC ? ' Najlepiej najpierw przejść przynajmniej jedną rundę testu na tym etapie.' : ''}</div>
+    <button class="big" id="startWeak" ${anyTotal === 0 || !cells.length ? 'disabled' : ''}>Ćwicz słabe punkty</button>
   </div>
   <div class="muted">Odpowiedzi w statystykach: wybór — ${totalN('choice')}, wpisywanie — ${totalN('type')}.</div>`;
 }
@@ -562,11 +610,12 @@ function bindSeg(id, set) {
 function bindStart() {
   bindSeg('stageSw', k => stage = k);
   bindPlan(stage);
+  bindFilter();
   document.getElementById('startTest').onclick = () => {
-    const n = +document.querySelector('input[name=cnt]:checked').value;
-    session = buildSession('test', n, stage); render();
+    const r = document.querySelector('input[name=cnt]:checked'); if (!r) return;
+    session = buildSession('test', +r.value, stage, activeCells()); render();
   };
-  document.getElementById('startWeak').onclick = () => { session = buildSession('weak', 30, stage); render(); };
+  document.getElementById('startWeak').onclick = () => { session = buildSession('weak', 30, stage, activeCells()); render(); };
   const sel = document.getElementById('sessSel');
   if (sel) {
     sel.onchange = () => { selSess = sel.value; confirmDel = null; render(); };
@@ -792,7 +841,7 @@ function finishHTML() {
   const byGroup = GROUPS.map(g => { const a = r.filter(x => x.cell.split(':')[1] === g.id); return { name: g.ru, n: a.length, ok: a.filter(x => x.ok).length }; });
   const line = x => x.n ? `<li>${esc(x.name)}: ${x.ok} z ${x.n}</li>` : '';
   const dia = r.filter(x => x.diaOnly).length;
-  const nextCount = Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3]));
+  const nextCount = s.cells ? s.count : Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3]));
   return `
   <div class="card">
     <div class="lbl">${finished ? 'Wynik' : 'Sesja przerwana'} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
@@ -817,7 +866,7 @@ function bindFinish() {
   const rs = document.getElementById('resume');
   if (rs) rs.onclick = () => { s.paused = false; const f = s.byQ[s.i] ? nextUnanswered(s, s.i) : s.i; if (f >= 0) { s.i = f; s.front = Math.max(s.front || 0, f); } render(); };
   const t = document.getElementById('toType');
-  if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3])) : 30, 'type'); render(); window.scrollTo(0, 0); };
+  if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? nextCount : 30, 'type', s.cells); render(); window.scrollTo(0, 0); };
   document.getElementById('again').onclick = () => { stage = s.kind; session = null; render(); };
   document.getElementById('toStats').onclick = () => { statsKind = s.kind; session = null; document.querySelector('.tab[data-tab=stats]').click(); };
 }

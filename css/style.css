@@ -281,3 +281,12 @@ svg.trend rect.t-bad { fill: var(--red); opacity: .9; }
 .qshead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .qshead h2.sub { margin: 0; }
 .qshead .tbtn { color: var(--pen); border: 1px solid var(--line); }
+
+/* Wybór przypadków i liczby */
+.filt { margin: 0 0 12px; }
+.flbl { font-size: 13px; color: var(--muted); margin: 8px 0 6px; }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fchip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 500 14px/1.2 var(--sans); cursor: pointer; }
+.fchip.on { border-color: var(--pen); background: var(--pen-soft); color: var(--ink); }
+.fchip:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+.fnote { margin-top: 8px; font-size: 13px; }
