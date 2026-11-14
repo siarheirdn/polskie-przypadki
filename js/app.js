@@ -511,6 +511,80 @@ function stageSwitch(id, cur) {
 }
 
 let selSess = null;
+let lastCnt = 20;
+try { const c = +localStorage.getItem('pp-count'); if (c) lastCnt = c; } catch (e) {}
+
+// ---- Wprowadzenie (pokazywane, dopóki użytkownik go nie zamknie)
+let introOpen = true;
+try { introOpen = localStorage.getItem('pp-intro') !== '0'; } catch (e) {}
+function setIntro(v) { introOpen = v; try { localStorage.setItem('pp-intro', v ? '1' : '0'); } catch (e) {} }
+function introHTML() {
+  if (!introOpen) return '';
+  return `<div class="card intro">
+    <div class="lbl">Jak to działa</div>
+    <ul class="list">
+      <li>W zdaniu brakuje dwóch słów: przymiotnika i rzeczownika. Nad luką jest forma podstawowa, pod luką — liczba, w której trzeba ją postawić.</li>
+      <li>Etap 1: wybierasz obie formy z czterech wariantów. Etap 2: wpisujesz je samodzielnie.</li>
+      <li>Po każdej odpowiedzi widzisz przypadek, regułę i końcówki.</li>
+      <li>Statystyki pokazują, które przypadki warto powtórzyć. Wyniki zapisują się tylko w tej przeglądarce.</li>
+    </ul>
+    <button class="big" id="quickStart">Szybki start: 20 pytań</button>
+    <button class="linkbtn" id="introClose">Zamknij wprowadzenie</button>
+  </div>`;
+}
+
+// ---- Zgłoszenia błędów w zadaniach (zapisywane w przeglądarce, wysyłane ręcznie)
+const REPO_ISSUES = 'https://github.com/siarheirdn/polskie-przypadki/issues/new';
+let reports = [];
+try { const r = JSON.parse(localStorage.getItem('pp-reports') || '[]'); if (Array.isArray(r)) reports = r; } catch (e) {}
+const saveReports = () => { try { localStorage.setItem('pp-reports', JSON.stringify(reports)); } catch (e) {} };
+const repKey = q => q.ti + '|' + q.ni + '|' + (q.plural ? 1 : 0);
+const repOf = q => reports.find(r => r.k === repKey(q));
+function saveReport(q, note) {
+  const rec = { k: repKey(q), t: Date.now(), sentence: q.sentence, base: q.base, plural: !!q.plural, adj: q.adjAnswer, noun: q.nounAnswer,
+    cas: CASES[q.caseIdx].ru, group: groupName(q.group), hint: q.hint, note: note.trim() };
+  const i = reports.findIndex(r => r.k === rec.k);
+  if (i >= 0) reports[i] = rec; else reports.push(rec);
+  saveReports();
+}
+function reportLine(r, n) {
+  return `${n}. ${r.sentence.replace('___', '[' + r.adj + ' ' + r.noun + ']')}\n   forma podstawowa: ${r.base}; ${r.plural ? 'liczba mnoga' : 'liczba pojedyncza'}; ${r.cas}, ${r.group}\n   uwaga: ${r.note || '(bez komentarza)'}`;
+}
+const reportsText = list => 'Zgłoszenia błędów w zadaniach (Polskie przypadki)\n\n' + list.map((r, i) => reportLine(r, i + 1)).join('\n\n');
+function reportsIssueUrl() {
+  let n = reports.length, body;
+  for (; n > 0; n--) {
+    body = reportsText(reports.slice(0, n)) + (n < reports.length ? `\n\n(+ ${reports.length - n} kolejnych — nie zmieściły się w linku, użyj „Kopiuj tekst”)` : '');
+    if (encodeURIComponent(body).length < 6000) break;
+  }
+  return REPO_ISSUES + '?title=' + encodeURIComponent(`Błędy w zadaniach (${reports.length})`) + '&body=' + encodeURIComponent(body || '');
+}
+function reportBoxHTML(s, q) {
+  const r = repOf(q);
+  if (!s.repOpen) return `<button class="linkbtn rep" id="repOpen">${r ? 'Zgłoszono błąd — popraw zgłoszenie' : 'Zgłoś błąd w tym zadaniu'}</button>`;
+  return `<div class="card repbox">
+    <div class="lbl">Co jest nie tak w tym zadaniu?</div>
+    <div class="muted">Np. zdanie brzmi nienaturalnie, forma jest błędna, pasuje więcej niż jedna odpowiedź. Możesz też zaproponować poprawkę.</div>
+    <textarea id="repText" placeholder="Twoja uwaga lub poprawka">${esc(s.repText != null ? s.repText : (r ? r.note : ''))}</textarea>
+    <div class="row"><button class="ghost" id="repSave">Zapisz zgłoszenie</button><button class="ghost" id="repCancel">Anuluj</button>${r ? '<button class="ghost" id="repDel" style="color:var(--red)">Usuń</button>' : ''}</div>
+    <div class="muted" style="margin-top:6px">Zgłoszenia zbierają się w zakładce Statystyki — stamtąd wyślesz je wszystkie naraz.</div>
+  </div>`;
+}
+function reportsHTML() {
+  if (!reports.length) return `<div class="card"><div class="lbl">Zgłoszenia błędów</div><div class="muted">Brak zgłoszeń. Jeśli w zadaniu coś jest nie tak, kliknij pod pytaniem „Zgłoś błąd w tym zadaniu”.</div></div>`;
+  return `<div class="card">
+    <div class="lbl">Zgłoszenia błędów: ${reports.length}</div>
+    ${reports.map((r, i) => `<div class="repitem"><div><div class="ex">${esc(r.sentence).replace('___', '<b>' + esc(r.adj + ' ' + r.noun) + '</b>')}</div>
+      <div class="muted">${esc(r.base)} · ${r.plural ? 'l. mn.' : 'l. poj.'} · ${esc(r.cas)}</div><div>${esc(r.note || '(bez komentarza)')}</div></div>
+      <button class="tbtn" data-repdel="${i}" title="Usuń zgłoszenie" aria-label="Usuń zgłoszenie">${ICON.close}</button></div>`).join('')}
+    <div class="row" style="margin-top:10px"><a class="ghost abtn" id="repSend" href="${esc(reportsIssueUrl())}" target="_blank" rel="noopener">Wyślij przez GitHub</a><button class="ghost" id="repCopy">Kopiuj tekst</button></div>
+    <div class="muted" style="margin-top:6px">„Wyślij przez GitHub” otwiera gotowe zgłoszenie (potrzebne konto GitHub). Bez konta: skopiuj tekst i wyślij go autorowi dowolnym komunikatorem.</div>
+    ${confirmRepClear ? `<div class="row" style="margin-top:8px"><button class="ghost" id="repClearYes" style="color:var(--red)">Tak, usuń wszystkie</button><button class="ghost" id="repClearNo">Anuluj</button></div>`
+      : `<div class="row" style="margin-top:8px"><button class="ghost" id="repClear">Wysłane — wyczyść listę</button></div>`}
+  </div>`;
+}
+let confirmRepClear = false;
+const PL_CHARS = ['ą', 'ć', 'ę', 'ł', 'ń', 'ó', 'ś', 'ź', 'ż'];
 // Wybór przypadków i liczby dla nowej sesji (zapamiętywany w przeglądarce)
 let filt = { cases: [0, 1, 2, 3, 4, 5], nums: ['sg', 'pl'] };
 try { const f = JSON.parse(localStorage.getItem('pp-filter') || 'null'); if (f && Array.isArray(f.cases) && Array.isArray(f.nums)) filt = f; } catch (e) {}
@@ -528,8 +602,8 @@ function filtTitle() {
 }
 function countsFor(n) {
   if (!n) return [];
-  const out = [];
-  (n === NC ? ROUNDS : [40, 80, 120, 200]).forEach(T => { const c = Math.max(1, Math.round(T / n)) * n; if (!out.includes(c)) out.push(c); });
+  const out = [10, 20, 40];
+  (n === NC ? ROUNDS : [80, 120, 200]).forEach(T => { const c = Math.max(1, Math.round(T / n)) * n; if (!out.includes(c) && c > 40) out.push(c); });
   return out;
 }
 function filterHTML() {
@@ -582,6 +656,7 @@ function startHTML() {
     ? 'Wybierasz przymiotnik i rzeczownik spośród czterech wariantów.'
     : 'Wpisujesz obie formy samodzielnie. Wielkość liter nie ma znaczenia, polskie znaki (ą, ę, ł, ó, ś, ż…) — mają.';
   return `
+  ${introHTML()}
   ${unfinishedHTML()}
   ${planHTML('start')}
   <h2 class="sub">Nowa sesja</h2>
@@ -590,10 +665,10 @@ function startHTML() {
   ${filterHTML()}
   <div class="card">
     <div class="lbl">Test: wybrane pola po równo</div>
-    <div class="muted">Pole = przypadek × grupa rodzaju i liczby (bez mianownika w liczbie pojedynczej — tam forma się nie zmienia). Każda runda przechodzi przez wszystkie wybrane pola po razie, w losowej kolejności.</div>
+    <div class="muted">Pole = przypadek × grupa rodzaju i liczby (bez mianownika w liczbie pojedynczej — tam forma się nie zmienia). Krótka sesja bierze losowe pola; pełna runda przechodzi przez wszystkie wybrane pola po razie.</div>
     <div style="margin-top:8px">
-      ${(() => { const n = cells.length, cs = countsFor(n), def = cs[stage === 'choice' ? Math.min(2, cs.length - 1) : 0];
-        return cs.map(c => `<label class="opt"><input type="radio" name="cnt" value="${c}" ${c === def ? 'checked' : ''}> ${pyt(c)} <span class="muted">(${c / n} ${plural(c / n, 'runda', 'rundy', 'rund')})</span></label>`).join(''); })()}
+      ${(() => { const n = cells.length, cs = countsFor(n), def = cs.includes(lastCnt) ? lastCnt : 20;
+        return cs.map(c => `<label class="opt"><input type="radio" name="cnt" value="${c}" ${c === def ? 'checked' : ''}> ${pyt(c)} <span class="muted">(${c % n === 0 && c / n >= 1 && c > 40 ? c / n + ' ' + plural(c / n, 'runda', 'rundy', 'rund') + ' — pełne pokrycie' : 'krótka sesja'})</span></label>`).join(''); })()}
     </div>
     <button class="big" id="startTest" ${cells.length ? '' : 'disabled'}>Rozpocznij test</button>
   </div>
@@ -602,7 +677,7 @@ function startHTML() {
     <div class="muted">30 pytań z wybranych pól, najczęściej z tych, w których jest najwięcej błędów.${total < NC ? ' Najlepiej najpierw przejść przynajmniej jedną rundę testu na tym etapie.' : ''}</div>
     <button class="big" id="startWeak" ${anyTotal === 0 || !cells.length ? 'disabled' : ''}>Ćwicz słabe punkty</button>
   </div>
-  <div class="muted">Odpowiedzi w statystykach: wybór — ${totalN('choice')}, wpisywanie — ${totalN('type')}.</div>`;
+  <div class="muted">Odpowiedzi w statystykach: wybór — ${totalN('choice')}, wpisywanie — ${totalN('type')}.${introOpen ? '' : ' <button class="inl" id="introOpen">Jak to działa?</button>'}</div>`;
 }
 function bindSeg(id, set) {
   document.querySelectorAll('#' + id + ' button').forEach(b => b.onclick = () => { set(b.dataset.k); render(); });
@@ -611,9 +686,13 @@ function bindStart() {
   bindSeg('stageSw', k => stage = k);
   bindPlan(stage);
   bindFilter();
+  const qs = document.getElementById('quickStart'); if (qs) qs.onclick = () => { setIntro(false); filt = { cases: [0, 1, 2, 3, 4, 5], nums: ['sg', 'pl'] }; saveFilt(); stage = 'choice'; session = buildSession('test', 20, 'choice', activeCells()); render(); };
+  const ic = document.getElementById('introClose'); if (ic) ic.onclick = () => { setIntro(false); render(); };
+  const io = document.getElementById('introOpen'); if (io) io.onclick = () => { setIntro(true); render(); window.scrollTo(0, 0); };
   document.getElementById('startTest').onclick = () => {
     const r = document.querySelector('input[name=cnt]:checked'); if (!r) return;
-    session = buildSession('test', +r.value, stage, activeCells()); render();
+    lastCnt = +r.value; try { localStorage.setItem('pp-count', lastCnt); } catch (e) {}
+    session = buildSession('test', lastCnt, stage, activeCells()); render();
   };
   document.getElementById('startWeak').onclick = () => { session = buildSession('weak', 30, stage, activeCells()); render(); };
   const sel = document.getElementById('sessSel');
@@ -721,7 +800,8 @@ function questionHTML() {
   const sec = (icon, label) => `<div class="sec">${icon}<span>${label}</span></div>`;
   const body = typing
     ? `${sec(ICON.tag, 'Przymiotnik')}${inp('inAdj', curA, res && res.adjOk, 'wpisz przymiotnik')}
-       ${sec(ICON.noun, 'Rzeczownik')}${inp('inNoun', curN, res && res.nounOk, 'wpisz rzeczownik')}`
+       ${sec(ICON.noun, 'Rzeczownik')}${inp('inNoun', curN, res && res.nounOk, 'wpisz rzeczownik')}
+       ${done ? '' : `<div class="plkeys" role="group" aria-label="Polskie znaki">${PL_CHARS.map(c => `<button type="button" data-ch="${c}" tabindex="-1">${c}</button>`).join('')}</div>`}`
     : `${sec(ICON.tag, 'Przymiotnik')}<div class="opts">${q.adjOptions.map(o => btn(o, 'adj')).join('')}</div>
        ${sec(ICON.noun, 'Rzeczownik')}<div class="opts">${q.nounOptions.map(o => btn(o, 'noun')).join('')}</div>`;
   const ready = typing ? (norm(s.inAdj) && norm(s.inNoun)) : (s.selAdj && s.selNoun);
@@ -758,6 +838,7 @@ function questionHTML() {
         </div>
       </div>
     </div>` : `<button class="linkbtn" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń to pytanie</button>`}
+  ${reportBoxHTML(s, q)}
   <div class="actions">
     <button class="ibtn nav-i" id="prev" title="Poprzednie pytanie" aria-label="Poprzednie pytanie" ${s.i === 0 ? 'disabled' : ''}>${ICON.prev}</button>
     ${done
@@ -774,7 +855,7 @@ function questionHTML() {
 }
 function advance(idx) { session.front = Math.max(session.front || 0, idx); goTo(idx); }
 function goTo(idx) {
-  const s = session; s.i = idx; s.selAdj = s.selNoun = null; s.inAdj = s.inNoun = '';
+  const s = session; s.i = idx; s.selAdj = s.selNoun = null; s.inAdj = s.inNoun = ''; s.repOpen = false; s.repText = null;
   render(); window.scrollTo(0, 0);
 }
 function bindQuestion() {
@@ -795,8 +876,21 @@ function bindQuestion() {
     ia.oninput = inn.oninput = upd;
     ia.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); inn.focus(); } };
     inn.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); if (!check.disabled) check.click(); } };
-    if (!s.inAdj) ia.focus();
+    if (!s.inAdj && !s.repOpen) ia.focus();
+    let lastIn = ia;
+    ia.onfocus = () => lastIn = ia; inn.onfocus = () => lastIn = inn;
+    document.querySelectorAll('.plkeys button').forEach(b => b.onpointerdown = e => {
+      e.preventDefault();
+      const el = lastIn, a = el.selectionStart != null ? el.selectionStart : el.value.length, z = el.selectionEnd != null ? el.selectionEnd : a;
+      el.value = el.value.slice(0, a) + b.dataset.ch + el.value.slice(z);
+      el.focus(); el.setSelectionRange(a + 1, a + 1); upd();
+    });
   }
+  const ro = document.getElementById('repOpen'); if (ro) ro.onclick = () => { s.repOpen = true; s.repText = null; render(); const t = document.getElementById('repText'); if (t) t.focus(); };
+  const rt = document.getElementById('repText'); if (rt) rt.oninput = () => { s.repText = rt.value; };
+  const rsv = document.getElementById('repSave'); if (rsv) rsv.onclick = () => { saveReport(q, rt.value); s.repOpen = false; s.repText = null; render(); };
+  const rc = document.getElementById('repCancel'); if (rc) rc.onclick = () => { s.repOpen = false; s.repText = null; render(); };
+  const rd = document.getElementById('repDel'); if (rd) rd.onclick = () => { reports = reports.filter(r => r.k !== repKey(q)); saveReports(); s.repOpen = false; s.repText = null; render(); };
   if (check) check.onclick = () => {
     let adjOk, nounOk, diaOnly = false, gotA, gotN;
     if (s.kind === 'type') {
@@ -841,7 +935,7 @@ function finishHTML() {
   const byGroup = GROUPS.map(g => { const a = r.filter(x => x.cell.split(':')[1] === g.id); return { name: g.ru, n: a.length, ok: a.filter(x => x.ok).length }; });
   const line = x => x.n ? `<li>${esc(x.name)}: ${x.ok} z ${x.n}</li>` : '';
   const dia = r.filter(x => x.diaOnly).length;
-  const nextCount = s.cells ? s.count : Math.max(ROUNDS[0], Math.min(s.count, ROUNDS[3]));
+  const nextCount = s.count;
   return `
   <div class="card">
     <div class="lbl">${finished ? 'Wynik' : 'Sesja przerwana'} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
@@ -866,7 +960,7 @@ function bindFinish() {
   const rs = document.getElementById('resume');
   if (rs) rs.onclick = () => { s.paused = false; const f = s.byQ[s.i] ? nextUnanswered(s, s.i) : s.i; if (f >= 0) { s.i = f; s.front = Math.max(s.front || 0, f); } render(); };
   const t = document.getElementById('toType');
-  if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? nextCount : 30, 'type', s.cells); render(); window.scrollTo(0, 0); };
+  if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? s.count : 30, 'type', s.cells); render(); window.scrollTo(0, 0); };
   document.getElementById('again').onclick = () => { stage = s.kind; session = null; render(); };
   document.getElementById('toStats').onclick = () => { statsKind = s.kind; session = null; document.querySelector('.tab[data-tab=stats]').click(); };
 }
@@ -916,6 +1010,7 @@ function statsHTML() {
   ${caseTreeHTML(cells)}
   ${planHTML('stats')}
   <details class="more"><summary>Więcej analizy</summary>${analysisHTML(statsKind) || '<div class="card muted">Na razie za mało błędów do analizy.</div>'}</details>
+  <details class="more" id="repDet"${reports.length ? ' open' : ''}><summary>Zgłoszenia błędów w zadaniach${reports.length ? ' (' + reports.length + ')' : ''}</summary>${reportsHTML()}</details>
   <details class="more"><summary>Historia sesji, kopia zapasowa, zerowanie</summary>
     ${historyHTML()}
     ${backupHTML()}
@@ -1121,12 +1216,20 @@ function bindStats() {
     try { await navigator.clipboard.writeText(t); document.getElementById('copy').textContent = 'Skopiowano'; }
     catch (e) { ta.classList.remove('hidden'); ta.value = t; ta.focus(); ta.select(); document.getElementById('copy').textContent = 'Zaznacz tekst poniżej i skopiuj'; }
   };
-  const r = document.getElementById('reset'); if (r) r.onclick = () => { confirmReset = true; render(); const d = document.querySelectorAll('details.more')[1]; if (d) d.open = true; };
+  const r = document.getElementById('reset'); if (r) r.onclick = () => { confirmReset = true; render(); const d = document.querySelectorAll('details.more')[2]; if (d) d.open = true; };
   const y = document.getElementById('resetYes'); if (y) y.onclick = () => {
     meta = Object.assign({}, meta, { resetAt: Date.now() }); Store.write('meta/main', meta);
     confirmReset = false; recompute(); render();
   };
   const n = document.getElementById('resetNo'); if (n) n.onclick = () => { confirmReset = false; render(); };
+  document.querySelectorAll('[data-repdel]').forEach(b => b.onclick = () => { reports.splice(+b.dataset.repdel, 1); saveReports(); render(); });
+  const rcp = document.getElementById('repCopy'); if (rcp) rcp.onclick = async () => {
+    try { await navigator.clipboard.writeText(reportsText(reports)); rcp.textContent = 'Skopiowano'; }
+    catch (e) { const ta = document.getElementById('exp'); ta.classList.remove('hidden'); ta.value = reportsText(reports); const d = ta.closest('details'); if (d) d.open = true; ta.focus(); ta.select(); rcp.textContent = 'Zaznacz tekst poniżej i skopiuj'; }
+  };
+  const rcl = document.getElementById('repClear'); if (rcl) rcl.onclick = () => { confirmRepClear = true; render(); };
+  const rcy = document.getElementById('repClearYes'); if (rcy) rcy.onclick = () => { reports = []; saveReports(); confirmRepClear = false; render(); };
+  const rcn = document.getElementById('repClearNo'); if (rcn) rcn.onclick = () => { confirmRepClear = false; render(); };
 }
 
 render();

@@ -290,3 +290,17 @@ svg.trend rect.t-bad { fill: var(--red); opacity: .9; }
 .fchip.on { border-color: var(--pen); background: var(--pen-soft); color: var(--ink); }
 .fchip:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
 .fnote { margin-top: 8px; font-size: 13px; }
+
+/* Wprowadzenie, zgłoszenia, polskie znaki */
+.intro .list { margin: 6px 0 4px; padding-left: 18px; }
+.intro .list li { margin: 5px 0; }
+button.inl { background: none; border: 0; padding: 0; color: var(--pen); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.linkbtn.rep { margin-top: 8px; font-size: 13.5px; }
+.repbox { margin-top: 12px; }
+.repbox textarea { height: 84px; font-size: 15px; margin: 8px 0; }
+.repitem { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.repitem > div { min-width: 0; }
+a.abtn { display: inline-block; padding: 10px 14px; border-radius: var(--r-s); border: 1px solid var(--line-2); background: var(--surface); color: var(--ink); font-size: 15px; text-decoration: none; }
+.plkeys { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.plkeys button { flex: 1 0 34px; min-height: 38px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 17px/1 var(--sans); cursor: pointer; touch-action: manipulation; }
+.plkeys button:active { background: var(--pen-soft); border-color: var(--pen); }
