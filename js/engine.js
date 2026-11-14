@@ -43,6 +43,7 @@ function buildPool() {
       if (t.notTag && [].concat(t.notTag).some(x => n.tags.includes(x))) return;
       [false, true].forEach(plural => {
         if (plural && (t.sgOnly || n.noPl)) return;
+        if (t.grp && ![].concat(t.grp).includes(groupOf(n, plural))) return;
         if (!plural && t.plOnly) return;
         n.adjs.forEach(a => {
           if (t.noAdj && t.noAdj.includes(a)) return;
@@ -211,6 +212,17 @@ function ruleLabel(h) {
   return l;
 }
 const RULE_GROUPS = [
+  [/^(martwić się|dbać|prosić|pytać|kłócić się|walczyć) o/, 'o + biernik (martwić się, dbać, prosić o…)'],
+  [/^(słuchać|dotykać|spróbować|pilnować|brakuje)/, 'dopełniacz po czasowniku (słuchać, dotykać, pilnować…)'],
+  [/^cieszyć się z/, 'cieszyć się z + dopełniacz'],
+  [/^(towarzyszyć|dokuczać|ufać)/, 'celownik po czasowniku (ufać, towarzyszyć, dokuczać…)'],
+  [/^przeciwko/, 'przeciwko + celownik'],
+  [/^tęsknić za/, 'tęsknić za + narzędnik'],
+  [/^poza/, 'poza + narzędnik'],
+  [/^po \+ biernik/, 'po + biernik (iść po co?)'],
+  [/^(zależy na|znać się na|polegać na)/, 'na + miejscownik (polegać, zależy, znać się na…)'],
+  [/^trzy, cztery/, 'trzy, cztery + mianownik l. mn.'],
+  [/^(trzech|pięć|kilka|dużo|grupa)/, 'liczebnik / ilość + dopełniacz l. mn.'],
   [/^dziękować/, 'dziękować komu?'],
   [/^dzięki/, 'dzięki + celownik'],
   [/^pomagać/, 'pomagać komu?'],
@@ -219,7 +231,7 @@ const RULE_GROUPS = [
   [/^czekać na/, 'czekać na + biernik'],
   [/^(spotkać|zaprosić|odprowadzać|karmić|dostać|kupić|zostawić|widzieć|narysować|lubić|sprzedawać|pokroić|upiec|pochwalić|zapytać|widać)(?= |$)/, 'kogo? co? (biernik po czasowniku)'],
   [/^(z kim|z czym|spotkać się z|zaprzyjaźnić się z)/, 'z + narzędnik (z kim? z czym?)'],
-  [/^(opiekować się|zajmować się|zachwycać się|częstować|dzielić się)/, 'narzędnik po czasowniku (zajmować się…)'],
+  [/^(opiekować się|zajmować się|zachwycać się|częstować|dzielić się|bawić się|interesować się|chwalić się)/, 'narzędnik po czasowniku (zajmować się…)'],
   [/^zadowolony z/, 'zadowolony z + dopełniacz'],
   [/^(o kim|o czym|zapomnieć o)/, 'o + miejscownik'],
   [/^w \(|^w czym|^w \+ miejscownik/, 'w + miejscownik (gdzie?)'],

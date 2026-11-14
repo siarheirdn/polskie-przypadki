@@ -108,7 +108,18 @@ const BY_CELL_CAT = {};
 POOL.forEach(p => { const c = NOUNS[p.ni].cat; const m = (BY_CELL_CAT[p.cell] = BY_CELL_CAT[p.cell] || {}); const k = (m[c] = m[c] || {}); (k[p.ni] = k[p.ni] || []).push(p); });
 const rnd = a => a[Math.floor(Math.random() * a.length)];
 const ikey = o => o.ti + '|' + o.ni + '|' + o.plural;
+// Zdania z osobliwościami (x, pułapka albo ostrzeżenie „!” w podpowiedzi) — losowane częściej
+const isSpecial = t => !!(t.x || t.trap || /!/.test(t.hint));
+const BY_CELL_X = {};
+POOL.forEach(p => { if (isSpecial(TEMPLATES[p.ti])) (BY_CELL_X[p.cell] = BY_CELL_X[p.cell] || []).push(p); });
+const X_SHARE = 0.35;
 function pickItem(cell, used) {
+  const xs = BY_CELL_X[cell];
+  if (xs && Math.random() < X_SHARE) {
+    // najpierw losowe zdanie, potem słowo — żeby każda osobliwość trafiała się równie często
+    const tis = [...new Set(xs.map(o => o.ti))];
+    for (let t = 0; t < 12; t++) { const ti = rnd(tis); const it = rnd(xs.filter(o => o.ti === ti)); if (!used.has(ikey(it))) return it; }
+  }
   const m = BY_CELL_CAT[cell];
   for (let t = 0; t < 40; t++) {
     const byNoun = m[rnd(Object.keys(m))];

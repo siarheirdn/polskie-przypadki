@@ -21,7 +21,7 @@ const GROUPS = [
 ];
 
 // Мужеличная форма мн. ч. для прилагательных, которые встречаются с лицами
-const VIR = { nowy: 'nowi', miły: 'mili', sympatyczny: 'sympatyczni', młody: 'młodzi', mały: 'mali', młodszy: 'młodsi', stary: 'starzy', dobry: 'dobrzy', bliski: 'bliscy', uprzejmy: 'uprzejmi', doświadczony: 'doświadczeni', zagraniczny: 'zagraniczni', zdolny: 'zdolni', pilny: 'pilni' };
+const VIR = { nowy: 'nowi', miły: 'mili', sympatyczny: 'sympatyczni', młody: 'młodzi', mały: 'mali', młodszy: 'młodsi', stary: 'starzy', dobry: 'dobrzy', bliski: 'bliscy', uprzejmy: 'uprzejmi', doświadczony: 'doświadczeni', zagraniczny: 'zagraniczni', zdolny: 'zdolni', pilny: 'pilni', ważny: 'ważni', wysoki: 'wysocy', znany: 'znani', starszy: 'starsi' };
 
 const NOUNS = [
   // ---- взрослые люди (cat: people)
@@ -145,6 +145,21 @@ const NOUNS = [
   ['rzeka', 'f', 'water', 'rzeka|rzeki|rzece|rzekę|rzeką|rzece;rzeki|rzek|rzekom|rzeki|rzekami|rzekach', ['górski', 'czysty', 'szeroki']],
   ['staw', 'mi', 'water', 'staw|stawu|stawowi|staw|stawem|stawie;stawy|stawów|stawom|stawy|stawami|stawach', ['mały', 'czysty', 'spokojny']],
   ['morze', 'n', 'water', 'morze|morza|morzu|morze|morzem|morzu;morza|mórz|morzom|morza|morzami|morzach', ['spokojny', 'czysty'], ['sea']],
+  // ---- rzeczowniki z nieregularną odmianą (dopisane na końcu — statystyki pamiętają numer słowa)
+  ['brat', 'mp', 'people', 'brat|brata|bratu|brata|bratem|bracie;bracia|braci|braciom|braci|braćmi|braciach', ['starszy', 'młodszy'], ['visit', 'friend']],
+  ['gość', 'mp', 'people', 'gość|gościa|gościowi|gościa|gościem|gościu;goście|gości|gościom|gości|gośćmi|gościach', ['miły', 'ważny', 'zagraniczny'], ['stranger']],
+  ['mężczyzna', 'mp', 'people', 'mężczyzna|mężczyzny|mężczyźnie|mężczyznę|mężczyzną|mężczyźnie;mężczyźni|mężczyzn|mężczyznom|mężczyzn|mężczyznami|mężczyznach', ['młody', 'wysoki', 'sympatyczny'], ['stranger', 'ask']],
+  ['człowiek', 'mp', 'people', 'człowiek|człowieka|człowiekowi|człowieka|człowiekiem|człowieku;ludzie|ludzi|ludziom|ludzi|ludźmi|ludziach', ['młody', 'miły', 'sympatyczny'], ['stranger']],
+  ['pan', 'mp', 'people', 'pan|pana|panu|pana|panem|panu;panowie|panów|panom|panów|panami|panach', ['miły', 'starszy', 'sympatyczny'], ['stranger', 'ask']],
+  ['pani', 'f', 'people', 'pani|pani|pani|panią|panią|pani;panie|pań|paniom|panie|paniami|paniach', ['miły', 'starszy', 'sympatyczny'], ['stranger', 'ask']],
+  ['profesor', 'mp', 'people', 'profesor|profesora|profesorowi|profesora|profesorem|profesorze;profesorowie|profesorów|profesorom|profesorów|profesorami|profesorach', ['nowy', 'znany', 'młody'], ['visit']],
+  ['lew', 'ma', 'zoo', 'lew|lwa|lwu|lwa|lwem|lwie;lwy|lwów|lwom|lwy|lwami|lwach', ['groźny', 'młody', 'afrykański']],
+  ['niedźwiedź', 'ma', 'zoo', 'niedźwiedź|niedźwiedzia|niedźwiedziowi|niedźwiedzia|niedźwiedziem|niedźwiedziu;niedźwiedzie|niedźwiedzi|niedźwiedziom|niedźwiedzie|niedźwiedziami|niedźwiedziach', ['brunatny', 'duży', 'młody']],
+  ['wąż', 'ma', 'zoo', 'wąż|węża|wężowi|węża|wężem|wężu;węże|węży|wężom|węże|wężami|wężach', ['długi', 'jadowity', 'egzotyczny']],
+  ['muzeum', 'n', 'place', 'muzeum|muzeum|muzeum|muzeum|muzeum|muzeum;muzea|muzeów|muzeom|muzea|muzeami|muzeach', ['nowy', 'miejski', 'ciekawy'], ['work', 'meet', 'view', 'like', 'nice']],
+  ['kościół', 'mi', 'place', 'kościół|kościoła|kościołowi|kościół|kościołem|kościele;kościoły|kościołów|kościołom|kościoły|kościołami|kościołach', ['stary', 'zabytkowy', 'mały'], ['meet', 'view', 'nice']],
+  ['dworzec', 'mi', 'place', 'dworzec|dworca|dworcowi|dworzec|dworcem|dworcu;dworce|dworców|dworcom|dworce|dworcami|dworcach', ['główny', 'nowy', 'stary'], ['work', 'meet', 'view']],
+  ['wieś', 'f', 'place', 'wieś|wsi|wsi|wieś|wsią|wsi;wsie|wsi|wsiom|wsie|wsiami|wsiach', ['mały', 'spokojny', 'stary'], ['city', 'like', 'view', 'through']],
 ].map(([lemma, g, cat, forms, adjs, tags, noPl]) => {
   const [sg, pl] = forms.split(';').map(s => s.split('|'));
   return { lemma, g, cat, sg, pl, adjs, tags: tags || [], noPl: !!noPl };
@@ -370,6 +385,48 @@ const TEMPLATES = [
   { cat: 'water', c: 'G', sgOnly: true, sg: 'Nasz dom stoi blisko ___, więc rano słychać śpiew ptaków.', hint: 'blisko + dopełniacz.' },
   { cat: 'water', c: 'I', sgOnly: true, sg: 'Zachwycaliśmy się ___ i nie chcieliśmy wracać do hotelu.', hint: 'zachwycać się czym? — narzędnik.' },
   { cat: 'water', c: 'D', sgOnly: true, sg: 'Z tarasu widokowego długo przyglądaliśmy się ___.', hint: 'przyglądać się czemu? — celownik.' },
+  // ===== Osobliwości polskiej składni i wyjątki (x: true — takie zdania losowane są częściej) =====
+  { cat: 'people', c: 'A', x: true, notTag: 'stranger', trap: ['L'], sg: 'Bardzo martwię się o ___, bo od tygodnia nie odbiera telefonu.', pl: 'Bardzo martwię się o ___, bo od tygodnia nie odbierają telefonu.', hint: 'martwić się o kogo? — biernik (po rosyjsku „беспокоиться о ком” — tu inaczej!). Ale: mówić o kim? — miejscownik.' },
+  { cat: 'people', c: 'A', x: true, trap: ['L'], sg: 'Policjant długo pytał mnie o ___, ale niewiele mogłem powiedzieć.', hint: 'pytać o kogo? — biernik. Ale: mówić o kim? — miejscownik.' },
+  { cat: 'people', c: 'G', x: true, trap: ['A'], sg: 'Dzieci uważnie słuchają ___, bo opowiada bardzo ciekawie.', pl: 'Dzieci uważnie słuchają ___, bo opowiadają bardzo ciekawie.', hint: 'słuchać kogo? czego? — dopełniacz (po rosyjsku „слушать кого” — biernik, tu inaczej!).' },
+  { cat: 'people', c: 'G', x: true, notTag: ['stranger', 'friend'], trap: ['A'], sg: 'W naszym zespole od dawna brakuje ___, więc wszyscy mają za dużo pracy.', hint: 'brakuje kogo? czego? — dopełniacz.' },
+  { cat: 'people', c: 'D', x: true, trap: ['G'], sg: 'Nikt z nas nie ma nic przeciwko ___, więc decyzja zapadła szybko.', hint: 'przeciwko + celownik (po rosyjsku „против кого” — dopełniacz, tu inaczej!).' },
+  { cat: 'people', c: 'D', x: true, trap: ['A'], sg: 'Towarzyszyłem ___ w drodze na dworzec i pomogłem nieść walizki.', hint: 'towarzyszyć komu? — celownik (po rosyjsku „сопровождать кого” — biernik, tu inaczej!).' },
+  { cat: 'people', c: 'I', x: true, notTag: 'stranger', trap: ['D', 'L'], sg: 'Bardzo tęsknię za ___, od kiedy przeprowadziłem się do innego miasta.', hint: 'tęsknić za kim? — narzędnik (po rosyjsku „скучать по кому” — tu inaczej!).' },
+  { cat: 'people', c: 'A', x: true, trap: ['I', 'L'], sg: 'Pojechałem na lotnisko po ___, bo samolot przyleciał wcześniej.', hint: 'po + biernik: pojechać po kogo? (po rosyjsku „за кем” — narzędnik, tu inaczej!).' },
+  { cat: 'people', c: 'L', x: true, notTag: 'stranger', trap: ['A'], sg: 'Bardzo mi zależy na ___, dlatego staram się nikogo nie zawieść.', hint: 'zależy na kim? na czym? — miejscownik.' },
+  { cat: 'people', c: 'N', x: true, grp: 'pn', plOnly: true, notTag: 'stranger', trap: ['G'], sg: 'W naszym dziale pracują trzy ___ i wszystkie mówią po polsku.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
+  { cat: 'people', c: 'G', x: true, grp: 'pv', plOnly: true, notTag: 'stranger', trap: ['N'], sg: 'W naszym dziale pracuje trzech ___ i wszyscy mówią po polsku.', hint: 'trzech + dopełniacz l. mn. (rodzaj męskoosobowy), czasownik w l. poj.' },
+  { cat: 'kids', c: 'A', x: true, trap: ['L'], sg: 'Mama bardzo się martwi o ___, kiedy długo nie wraca ze szkoły.', pl: 'Mama bardzo się martwi o ___, kiedy długo nie wracają ze szkoły.', hint: 'martwić się o kogo? — biernik (po rosyjsku „беспокоиться о ком” — tu inaczej!). Ale: mówić o kim? — miejscownik.' },
+  { cat: 'kids', c: 'D', x: true, trap: ['A'], sg: 'Starsi koledzy często dokuczają ___ na przerwach.', hint: 'dokuczać komu? — celownik.' },
+  { cat: 'pets', c: 'A', x: true, trap: ['L'], sg: 'Sąsiadka bardzo dba o ___, dlatego weterynarz zawsze ją chwali.', hint: 'dbać o kogo? o co? — biernik (po rosyjsku „заботиться о ком” — tu inaczej!).' },
+  { cat: 'pets', c: 'I', x: true, trap: ['D', 'L'], sg: 'Córka tęskni za ___ i ciągle pyta, kiedy wrócimy do domu.', hint: 'tęsknić za kim? — narzędnik (po rosyjsku „скучать по кому” — tu inaczej!).' },
+  { cat: 'pets', c: 'N', x: true, plOnly: true, trap: ['G'], sg: 'U naszej babci mieszkają trzy ___ i w domu nigdy nie jest cicho.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
+  { cat: 'obj', c: 'A', x: true, tag: 'carry', sgOnly: true, trap: ['L'], sg: 'Poprosiłem kolegę o ___, bo swoje rzeczy zostawiłem w domu.', hint: 'prosić o co? — biernik (po rosyjsku „просить о чём” — tu inaczej!). Ale: mówić o czym? — miejscownik.' },
+  { cat: 'obj', c: 'G', x: true, tag: 'carry', sgOnly: true, trap: ['A'], sg: 'Pilnuj dobrze ___, bo w tłumie łatwo coś zgubić.', hint: 'pilnować czego? — dopełniacz.' },
+  { cat: 'obj', c: 'G', x: true, sgOnly: true, noAdj: ['stary', 'zapasowy', 'służbowy', 'czysty', 'kartonowy'], trap: ['I', 'D'], sg: 'Córka bardzo się cieszy {z} ___, bo dostała to w prezencie od babci.', hint: 'cieszyć się z czego? — dopełniacz (po rosyjsku „радоваться чему” — celownik, tu inaczej!).' },
+  { cat: 'obj', c: 'I', x: true, tag: 'use', sgOnly: true, trap: ['A'], sg: 'Syn od rana bawi się ___ i nie chce jeść obiadu.', hint: 'bawić się czym? — narzędnik.' },
+  { cat: 'obj', c: 'A', x: true, tag: 'carry', sgOnly: true, trap: ['I', 'L'], sg: 'Wróciłem do domu po ___, bo bez tego nie mogłem pracować.', hint: 'po + biernik: wrócić po co? (po rosyjsku „за чем” — narzędnik, tu inaczej!).' },
+  { cat: 'obj', c: 'N', x: true, tag: 'carry', plOnly: true, trap: ['G'], sg: 'Na biurku leżą trzy ___ i kilka rachunków.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
+  { cat: 'obj', c: 'G', x: true, plOnly: true, noAdj: ['stary', 'ulubiony'], trap: ['A', 'N'], sg: 'Kupiłem w promocji pięć ___, bo cena była naprawdę dobra.', hint: 'pięć i więcej + dopełniacz l. mn.' },
+  { cat: 'food', c: 'A', x: true, tag: 'share', trap: ['L'], sg: 'Dzieci pokłóciły się o ___, więc musiałem podzielić wszystko na pół.', hint: 'kłócić się o co? — biernik. Ale: mówić o czym? — miejscownik.' },
+  { cat: 'food', c: 'G', x: true, tag: 'yum', trap: ['A'], sg: 'Spróbuj koniecznie ___, bo naprawdę warto.', hint: 'spróbować czego? — dopełniacz (po rosyjsku „попробовать что” — biernik, tu inaczej!).' },
+  { cat: 'food', c: 'A', x: true, noAdj: ['gotowany'], trap: ['I', 'L'], sg: 'Idę do sklepu po ___, bo na kolację przychodzą goście.', hint: 'po + biernik: iść po co? (po rosyjsku „за чем” — narzędnik, tu inaczej!).' },
+  { cat: 'food', c: 'N', x: true, tag: 'count', plOnly: true, trap: ['G'], sg: 'Na talerzu leżą jeszcze cztery ___, więc częstuj się.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „четыре новых…” — dopełniacz, tu inaczej!).' },
+  { cat: 'school', c: 'G', x: true, trap: ['A'], sg: 'Cała klasa uważnie słucha ___ podczas prezentacji projektu.', hint: 'słuchać kogo? czego? — dopełniacz (po rosyjsku „слушать кого” — biernik, tu inaczej!).' },
+  { cat: 'zoo', c: 'G', x: true, trap: ['A'], sg: 'Nie wolno dotykać ___, nawet jeśli wygląda bardzo spokojnie.', pl: 'Nie wolno dotykać ___, nawet jeśli wyglądają bardzo spokojnie.', hint: 'dotykać kogo? czego? — dopełniacz.' },
+  { cat: 'zoo', c: 'N', x: true, plOnly: true, trap: ['G'], sg: 'W tym zoo mieszkają tylko trzy ___, bo wybieg jest za ciasny.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
+  { cat: 'zoo', c: 'L', x: true, plOnly: true, trap: ['A', 'I'], sg: 'Ten przewodnik świetnie zna się na ___ i potrafi godzinami o tym opowiadać.', hint: 'znać się na kim? na czym? — miejscownik.' },
+  { cat: 'zoo', c: 'I', plOnly: true, sg: 'Mój syn bardzo interesuje się ___ i ogląda wszystkie filmy przyrodnicze.', hint: 'interesować się kim? czym? — narzędnik.' },
+  { cat: 'place', c: 'A', x: true, tag: 'nice', noAdj: ['drogi', 'pobliski'], trap: ['L'], sg: 'Mieszkańcy od lat walczą o ___, ale urzędnicy ciągle odmawiają.', hint: 'walczyć o co? — biernik. Ale: mówić o czym? — miejscownik.' },
+  { cat: 'place', c: 'G', tag: 'meet', sgOnly: true, noAdj: ['pobliski'], sg: 'Naprzeciwko ___ otwarto niedawno piekarnię.', hint: 'naprzeciwko + dopełniacz.' },
+  { cat: 'place', c: 'I', x: true, tag: 'nice', noAdj: ['pobliski'], trap: ['G'], sg: 'Poza ___ nie ma w tej okolicy nic ciekawego.', hint: 'poza + narzędnik (po rosyjsku „кроме чего” — dopełniacz, tu inaczej!).' },
+  { cat: 'place', c: 'N', x: true, tag: 'meet', plOnly: true, noAdj: ['pobliski'], trap: ['G'], sg: 'W naszym mieście są cztery ___, co jak na taką miejscowość jest niezłym wynikiem.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „четыре новых…” — dopełniacz, tu inaczej!).' },
+  { cat: 'vehicle', c: 'A', x: true, trap: ['L'], sg: 'Sąsiad bardzo dba o ___ i w każdą sobotę wszystko dokładnie czyści.', hint: 'dbać o co? — biernik (po rosyjsku „заботиться о чём” — tu inaczej!).' },
+  { cat: 'vehicle', c: 'G', x: true, sgOnly: true, trap: ['I', 'D'], sg: 'Syn bardzo cieszy się {z} ___, bo marzył o tym od roku.', hint: 'cieszyć się z czego? — dopełniacz (po rosyjsku „радоваться чему” — celownik, tu inaczej!).' },
+  { cat: 'vehicle', c: 'L', x: true, plOnly: true, trap: ['A', 'I'], sg: 'Mój wujek świetnie zna się na ___ i sam wszystko naprawia.', hint: 'znać się na czym? — miejscownik.' },
+  { cat: 'furniture', c: 'G', notTag: 'wall', sgOnly: true, sg: 'Zamiast ___ wstawiliśmy do pokoju regał na książki.', hint: 'zamiast + dopełniacz.' },
+  { cat: 'water', c: 'G', sgOnly: true, sg: 'Wzdłuż ___ prowadzi ścieżka rowerowa, więc często jeździmy tam w weekendy.', hint: 'wzdłuż + dopełniacz.' },
 ];
 
 
