@@ -1036,6 +1036,27 @@ function statsHTML() {
         : `<button class="ghost" id="reset">Wyzeruj statystyki</button>`}
     </div>
     <div class="muted" style="margin-top:6px">Zerowanie liczy statystyki od nowa; historia sesji zostaje.</div>
+  </details>
+  ${errorsHTML()}`;
+}
+// ---- Lista wszystkich błędnych odpowiedzi (dla wybranego etapu), od najnowszych
+let errCase = -1, errShown = 30, errOpen = false;
+function errorsHTML() {
+  const all = stats[LK(statsKind)];
+  if (!all.length) return '';
+  const cnt = CASES.map((c, i) => all.filter(e => +e.cell.split(':')[0] === i).length);
+  const list = all.filter(e => errCase < 0 || +e.cell.split(':')[0] === errCase).slice().reverse();
+  const chip = (i, label, n) => `<button class="fchip ${errCase === i ? 'on' : ''}" data-errcase="${i}" ${n ? '' : 'disabled'}>${label} <span class="muted">${n}</span></button>`;
+  return `<details class="more" id="errDet"${errOpen ? ' open' : ''}><summary>Wszystkie błędne odpowiedzi (${all.length})</summary>
+    <div class="card">
+      <div class="fchips">${chip(-1, 'wszystkie', all.length)}${CASES.map((c, i) => chip(i, c.ru, cnt[i])).join('')}</div>
+      ${list.slice(0, errShown).map(e => { const [ci, g] = e.cell.split(':'); return `<div class="erritem">
+        <div class="ex">${esc(e.s).replace('___', '<b class="ok">' + esc(e.right) + '</b>')}</div>
+        <div>Twoja odpowiedź: <b class="bad">${esc(e.got)}</b>${e.dia ? ' <span class="muted">(tylko polskie znaki)</span>' : ''}</div>
+        <div class="muted">${esc(e.base)}${/→/.test(e.base) ? '' : ' → ' + (g === 'pv' || g === 'pn' ? 'l. mn.' : 'l. poj.')} · ${CASES[+ci].ru}${e.t ? ' · ' + fmtDate(e.t) : ''}</div>
+      </div>`; }).join('')}
+      ${list.length > errShown ? `<button class="ghost" id="errMore" style="margin-top:10px">Pokaż kolejne (${Math.min(30, list.length - errShown)} z ${list.length - errShown})</button>` : ''}
+    </div>
   </details>`;
 }
 // ---- Kopia zapasowa (tylko gdy wyniki są w przeglądarce)
@@ -1218,7 +1239,7 @@ function exportText() {
   return lines.join('\n');
 }
 function bindStats() {
-  bindSeg('statSw', k => statsKind = k);
+  bindSeg('statSw', k => { statsKind = k; errCase = -1; errShown = 30; });
   bindPlan(statsKind);
   const bd = document.getElementById('bkDown'); if (bd) bd.onclick = downloadBackup;
   const bu = document.getElementById('bkUp'); if (bu) bu.onchange = () => { if (bu.files && bu.files[0]) importBackup(bu.files[0]); };
@@ -1233,6 +1254,9 @@ function bindStats() {
     confirmReset = false; recompute(); render();
   };
   const n = document.getElementById('resetNo'); if (n) n.onclick = () => { confirmReset = false; render(); };
+  const ed = document.getElementById('errDet'); if (ed) ed.ontoggle = () => { errOpen = ed.open; };
+  document.querySelectorAll('[data-errcase]').forEach(b => b.onclick = () => { errCase = +b.dataset.errcase; errShown = 30; errOpen = true; render(); });
+  const em = document.getElementById('errMore'); if (em) em.onclick = () => { errShown += 30; errOpen = true; render(); };
   document.querySelectorAll('[data-repdel]').forEach(b => b.onclick = () => { reports.splice(+b.dataset.repdel, 1); saveReports(); render(); });
   const rcp = document.getElementById('repCopy'); if (rcp) rcp.onclick = async () => {
     try { await navigator.clipboard.writeText(reportsText(reports)); rcp.textContent = 'Skopiowano'; }

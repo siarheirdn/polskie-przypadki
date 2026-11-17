@@ -304,3 +304,10 @@ a.abtn { display: inline-block; padding: 10px 14px; border-radius: var(--r-s); b
 .plkeys { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 .plkeys button { flex: 1 0 34px; min-height: 38px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 17px/1 var(--sans); cursor: pointer; touch-action: manipulation; }
 .plkeys button:active { background: var(--pen-soft); border-color: var(--pen); }
+
+/* Lista błędnych odpowiedzi */
+.erritem { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.erritem:last-of-type { border-bottom: 0; }
+.erritem b.ok { color: var(--green); }
+.erritem b.bad { color: var(--red); font-weight: 600; }
+.fchip:disabled { opacity: .4; cursor: default; }
