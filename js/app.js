@@ -443,7 +443,7 @@ function sessionFromItems(items, mode, kind, title, cells) {
   let id; do { id = newId(); } while (progress[id]);
   const now = Date.now();
   const s = { id, mode, kind, count, title, cells, questions, i: 0, results: [], byQ: {}, front: 0, createdAt: now, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
-  Store.write('sessions/' + id, { id, mode, kind, count, title: title || null, cells: cells || null, createdAt: now, questions });
+  Store.write('sessions/' + id, { id, mode, kind, count, v: CONTENT_V, title: title || null, cells: cells || null, createdAt: now, questions });
   saveProgress(s);
   return s;
 }
@@ -478,6 +478,26 @@ function saveProgress(s) {
   Store.write('progress/' + s.id, doc);
 }
 
+// Wersja treści: po zmianie zdań lub wariantów pytania bez odpowiedzi w starych sesjach są układane od nowa
+const CONTENT_V = 6;
+function refreshQuestions(s, doc) {
+  if (doc.v === CONTENT_V) return;
+  const used = new Set();
+  s.questions = s.questions.map((qq, k) => {
+    if (s.byQ[k]) return qq;
+    let item = null;
+    if (qq.ti != null && qq.ni != null && TEMPLATES[qq.ti] && NOUNS[qq.ni]) {
+      const adj = adjLemmaOf(qq);
+      item = POOL.find(o => o.ti === qq.ti && o.ni === qq.ni && o.plural === !!qq.plural && o.adj === adj && o.cell === qq.cell) || null;
+    }
+    if (!item || used.has(ikey(item))) item = pickItem(qq.cell, used);
+    if (!item) return qq;
+    used.add(ikey(item));
+    return shapeQuestion(item);
+  });
+  doc.questions = s.questions; doc.v = CONTENT_V;
+  Store.write('sessions/' + s.id, doc);
+}
 async function resumeSession(id) {
   id = String(id || '').trim().toUpperCase();
   openErr = '';
@@ -489,6 +509,7 @@ async function resumeSession(id) {
   const byQ = {}; results.forEach(r => byQ[r.qi] = r);
   session = { id, mode: q.mode, kind: q.kind, count: q.count, title: q.title || null, cells: q.cells || undefined, questions: q.questions, i: 0, results, byQ,
     createdAt: q.createdAt, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
+  refreshQuestions(session, q);
   const first = firstUnanswered(session);
   if (first < 0) session.finished = true; else session.i = first;
   // najdalsze miejsce, do którego doszedł użytkownik: dalej przyciskiem „Dalej” nie wolno

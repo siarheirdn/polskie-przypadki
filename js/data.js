@@ -348,7 +348,7 @@ const TEMPLATES = [
   { cat: 'people', c: 'I', notTag: ['stranger', 'friend'], sg: 'Kłóciłem się kiedyś {z} ___, ale dziś jesteśmy w dobrych stosunkach.', hint: 'kłócić się z kim? — narzędnik.' },
   { cat: 'people', c: 'I', sg: 'Dyrektor jest bardzo zadowolony ze współpracy {z} ___.', hint: 'współpraca z kim? — narzędnik.' },
   { cat: 'people', c: 'L', sg: 'W lokalnej gazecie ukazał się długi artykuł o ___.', hint: 'o kim? — miejscownik.' },
-  { cat: 'people', c: 'L', notTag: 'stranger', trap: ['A'], sg: 'W trudnej sytuacji zawsze można polegać na ___.', hint: 'polegać na kim? — miejscownik (nie biernik!).' },
+  { cat: 'people', c: 'L', notTag: 'stranger', noAdj: ['sympatyczny', 'miły', 'nowy'], trap: ['A'], sg: 'W trudnej sytuacji zawsze można polegać na ___.', hint: 'polegać na kim? — miejscownik (nie biernik!).' },
   { cat: 'people', c: 'N', tag: 'visit', sg: 'W domu obok mieszka ___, więc często się widujemy.', pl: 'W domu obok mieszkają ___, więc często się widujemy.', hint: 'Kto mieszka? — podmiot, mianownik.' },
   // dzieci
   { cat: 'kids', c: 'N', sg: 'W piaskownicy siedzi ___ i buduje zamek z piasku.', pl: 'W piaskownicy siedzą ___ i budują zamek z piasku.', hint: 'Kto siedzi? — podmiot, mianownik.' },
