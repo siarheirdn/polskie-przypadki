@@ -316,7 +316,7 @@ function recompute() {
     (p.r || []).forEach(r => {
       if ((r.t || 0) <= resetAt || SKIP(r.c)) return;
       const x = cs(k, r.c); x.n++; if (!r.ok) x.wrong++; if (!r.ao) x.adjWrong++; if (!r.no) x.nounWrong++;
-      if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, dia: r.d || undefined, t: r.t });
+      if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, ga: r.ga, gn: r.gn, dia: r.d || undefined, t: r.t });
       st.all.push(r); (st.allK[p.kind === 'type' ? 'type' : 'choice']).push(r);
       const A = st.an[p.kind === 'type' ? 'type' : 'choice'];
       (A.hist[r.c] = A.hist[r.c] || []).push([r.t || 0, !!r.ok]);
@@ -1062,6 +1062,12 @@ function statsHTML() {
 }
 // ---- Lista wszystkich błędnych odpowiedzi (dla wybranego etapu), od najnowszych
 let errCase = -1, errShown = 30, errOpen = false;
+// odpowiedź słowo po słowie: dobre słowo na zielono, błędne na czerwono
+function gotHTML(e) {
+  const rw = String(e.right || '').split(' ');
+  const gw = e.ga != null ? [e.ga, e.gn] : String(e.got || '').split(' ');
+  return [0, 1].map(i => { const w = (gw[i] || '').trim(); return `<b class="${w && w === rw[i] ? 'ok' : 'bad'}">${esc(w || '—')}</b>`; }).join(' ');
+}
 function errorsHTML() {
   const all = stats[LK(statsKind)];
   if (!all.length) return '';
@@ -1073,7 +1079,7 @@ function errorsHTML() {
       <div class="fchips">${chip(-1, 'wszystkie', all.length)}${CASES.map((c, i) => chip(i, c.ru, cnt[i])).join('')}</div>
       ${list.slice(0, errShown).map(e => { const [ci, g] = e.cell.split(':'); return `<div class="erritem">
         <div class="ex">${esc(e.s).replace('___', '<b class="ok">' + esc(e.right) + '</b>')}</div>
-        <div>Twoja odpowiedź: <b class="bad">${esc(e.got)}</b>${e.dia ? ' <span class="muted">(tylko polskie znaki)</span>' : ''}</div>
+        <div>Twoja odpowiedź: ${gotHTML(e)}${e.dia ? ' <span class="muted">(tylko polskie znaki)</span>' : ''}</div>
         <div class="muted">${esc(e.base)}${/→/.test(e.base) ? '' : ' → ' + (g === 'pv' || g === 'pn' ? 'l. mn.' : 'l. poj.')} · ${CASES[+ci].ru}${e.t ? ' · ' + fmtDate(e.t) : ''}</div>
       </div>`; }).join('')}
       ${list.length > errShown ? `<button class="ghost" id="errMore" style="margin-top:10px">Pokaż kolejne (${Math.min(30, list.length - errShown)} z ${list.length - errShown})</button>` : ''}
