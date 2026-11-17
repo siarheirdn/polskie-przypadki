@@ -141,32 +141,44 @@ function nearMissNoun(n, c, plural, cn) {
   }
   return out.filter(f => f && f !== cn);
 }
+// Formy z drugiej liczby nie są dobrymi pułapkami (liczba jest podana w zadaniu) —
+// trafiają do wariantów tylko wtedy, gdy w tej samej liczbie brakuje różnych form.
+const FAKE_SG = { pani: ['panię', 'panii', 'paniej'], sprzedawczyni: ['sprzedawczynii', 'sprzedawczyniej'], 'wieś': ['wsię', 'wiesi'] };
 function distractors(t, n, adj, c, plural, ca, cn) {
   const vir = n.g === 'mp';
+  const ALL = ['N', 'G', 'D', 'A', 'I', 'L'];
   const baseA = adjFor(adj, n.g, 'N', false), baseN = n.sg[0];
-  const pairs = [];
-  const push = (cs, pl, g) => cs.forEach(x => {
+  const same = [], otherNum = [];
+  const push = (list, cs, pl, g, v) => cs.forEach(x => {
     if (pl && n.noPl) return;
-    pairs.push([adjFor(adj, g || n.g, x, pl, vir), (pl ? n.pl : n.sg)[CI[x]]]);
+    list.push([adjFor(adj, g || n.g, x, pl, v === undefined ? vir : v), (pl ? n.pl : n.sg)[CI[x]]]);
   });
   const trap = trapCases(t), conf = CONFUSE[c].filter(x => !trap.includes(x));
-  push(trap, plural); push(conf, plural);          // ten sam numer: pułapki, potem typowe pomyłki
-  push([c], !plural);                              // ten sam przypadek, druga liczba (formy-homonimy)
-  push(trap, !plural); push(conf, !plural);
-  const other = n.g === 'f' ? 'mi' : (n.g === 'n' ? 'ma' : (/a$/.test(baseN) ? 'f' : 'n'));
-  if (!plural) push([c, ...trap], false, other);   // pułapka rodzaju (kolega → młodej, kotka → młodego)
-  push(['N', 'G', 'D', 'A', 'I', 'L'], plural); push(['N', 'G', 'D', 'A', 'I', 'L'], !plural);
+  push(same, trap, plural); push(same, conf, plural);       // pułapki zdania, potem typowe pomyłki
+  if (plural) push(same, [c, 'N', 'A'], true, null, !vir);  // męskoosobowy ↔ niemęskoosobowy (nowi / nowe)
+  else {
+    const other = n.g === 'f' ? 'mi' : (n.g === 'n' ? 'ma' : (/a$/.test(baseN) ? 'f' : 'n'));
+    push(same, [c, ...trap], false, other);                 // pułapka rodzaju (kolega → młodej, kotka → młodego)
+  }
+  push(same, ALL, plural);
+  if (!plural) push(same, [c, ...ALL], false, n.g === 'f' ? 'mi' : 'f');
+  push(otherNum, [c, ...trap, ...conf, ...ALL], !plural);
   const A = [], N = [];
   nearMissNoun(n, c, plural, cn).slice(0, 2).forEach(f => { if (!N.includes(f)) N.push(f); });
-  const okA = x => x && x !== ca && !A.includes(x) && (x !== baseA || ca === baseA);
-  const okN = x => x && x !== cn && !N.includes(x) && (x !== baseN || cn === baseN);
-  for (const [a, nn] of pairs) {
-    if (A.length < 3 && okA(a)) A.push(a);
-    if (N.length < 3 && okN(nn)) N.push(nn);
-    if (A.length === 3 && N.length === 3) break;
+  const fill = (pairs, allowBase) => {
+    for (const [a, nn] of pairs) {
+      if (A.length < 3 && a && a !== ca && !A.includes(a) && (allowBase || a !== baseA || ca === baseA)) A.push(a);
+      if (N.length < 3 && nn && nn !== cn && !N.includes(nn) && (allowBase || nn !== baseN || cn === baseN)) N.push(nn);
+    }
+  };
+  fill(same, false);
+  if (!plural && N.length < 3) {                             // muzeum, pani — za mało różnych form: błędne końcówki
+    const fakes = FAKE_SG[baseN] || (n.sg.every(f => f === baseN) ? [baseN + 'u', baseN + 'a', baseN + 'em'] : []);
+    if (FAKE_SG[baseN]) fill(same, true);                    // najpierw prawdziwe formy, potem zmyślone
+    fakes.forEach(f => { if (N.length < 3 && f !== cn && !N.includes(f)) N.push(f); });
   }
-  // za mało form (rzadko) — wtedy także forma podstawowa
-  for (const [a, nn] of pairs) { if (A.length < 3 && a && a !== ca && !A.includes(a)) A.push(a); if (N.length < 3 && nn && nn !== cn && !N.includes(nn)) N.push(nn); }
+  fill(same, true);                                          // w ostateczności także forma podstawowa
+  fill(otherNum, true);                                      // i dopiero na końcu druga liczba
   return { adjD: A, nounD: N };
 }
 function pick3(primary, fallback) {
