@@ -3,9 +3,10 @@ function adjForms(base) {
   const velar = base.endsWith('i');
   const st = base.slice(0, -1);
   const Y = velar ? 'i' : 'y', E = velar ? 'ie' : 'e';
+  const FA = velar && !/[kg]i$/.test(base) ? st + 'i' : st;   // miękkie: tani → tania, tanią (ale: drogi → droga)
   return {
     m: { N: st + Y, G: st + E + 'go', D: st + E + 'mu', Aan: st + E + 'go', Ain: st + Y, I: st + Y + 'm', L: st + Y + 'm' },
-    f: { N: st + 'a', G: st + E + 'j', D: st + E + 'j', A: st + 'ą', I: st + 'ą', L: st + E + 'j' },
+    f: { N: FA + 'a', G: st + E + 'j', D: st + E + 'j', A: FA + 'ą', I: FA + 'ą', L: st + E + 'j' },
     n: { N: st + E, G: st + E + 'go', D: st + E + 'mu', A: st + E, I: st + Y + 'm', L: st + Y + 'm' },
     p: { Nv: VIR[base] || null, Nn: st + E, G: st + Y + 'ch', D: st + Y + 'm', Av: st + Y + 'ch', An: st + E, I: st + Y + 'mi', L: st + Y + 'ch' },
   };
@@ -43,6 +44,7 @@ function buildPool() {
       if (t.notTag && [].concat(t.notTag).some(x => n.tags.includes(x))) return;
       [false, true].forEach(plural => {
         if (plural && (t.sgOnly || n.noPl)) return;
+        if (!plural && n.noSg) return;
         if (t.grp && ![].concat(t.grp).includes(groupOf(n, plural))) return;
         if (!plural && t.plOnly) return;
         n.adjs.forEach(a => {
@@ -71,7 +73,7 @@ function makeQuestion(item) {
   return {
     key: item.ti + '|' + item.ni + '|' + item.adj + '|' + (plural ? 1 : 0),
     cell: item.cell, caseIdx: CI[c], group: groupOf(n, plural),
-    sentence, base: correctAdj(item.adj, n, 'N', false) + ' ' + n.sg[0], plural,
+    sentence, base: correctAdj(item.adj, n, 'N', n.noSg) + ' ' + n.sg[0], plural,
     adjAnswer: ca, nounAnswer: cn,
     adjOptions: shuffle([ca, ...adjD]), nounOptions: shuffle([cn, ...nounD]),
     hint: t.hint, ti: item.ti, ni: item.ni,
@@ -115,6 +117,7 @@ function nearMissNoun(n, c, plural, cn) {
   const masc = n.g === 'mp' || n.g === 'ma' || n.g === 'mi';
   const lemma = n.sg[0], lemmaA = /a$/.test(lemma);       // kolega, kierowca — inne końcówki
   const out = [];
+  if (n.noSg) return c === 'D' && /om$/.test(cn) ? [cn.slice(0, -2) + 'am'] : [];
   if (!plural && masc && !lemmaA && c === 'G') {
     if (/a$/.test(cn)) out.push(cn.slice(0, -1) + 'u');          // chleba → chlebu
     else if (/u$/.test(cn)) out.push(cn.slice(0, -1) + 'a');     // sklepu → sklepa
@@ -147,10 +150,10 @@ const FAKE_SG = { pani: ['panię', 'panii', 'paniej'], sprzedawczyni: ['sprzedaw
 function distractors(t, n, adj, c, plural, ca, cn) {
   const vir = n.g === 'mp';
   const ALL = ['N', 'G', 'D', 'A', 'I', 'L'];
-  const baseA = adjFor(adj, n.g, 'N', false), baseN = n.sg[0];
+  const baseA = adjFor(adj, n.g, 'N', n.noSg, vir), baseN = n.sg[0];
   const same = [], otherNum = [];
   const push = (list, cs, pl, g, v) => cs.forEach(x => {
-    if (pl && n.noPl) return;
+    if ((pl && n.noPl) || (!pl && n.noSg)) return;
     list.push([adjFor(adj, g || n.g, x, pl, v === undefined ? vir : v), (pl ? n.pl : n.sg)[CI[x]]]);
   });
   const trap = trapCases(t), conf = CONFUSE[c].filter(x => !trap.includes(x));
@@ -161,7 +164,7 @@ function distractors(t, n, adj, c, plural, ca, cn) {
     push(same, [c, ...trap], false, other);                 // pułapka rodzaju (kolega → młodej, kotka → młodego)
   }
   push(same, ALL, plural);
-  if (!plural) push(same, [c, ...ALL], false, n.g === 'f' ? 'mi' : 'f');
+  if (!plural) push(same, [c, ...ALL].filter(x => x !== 'N' || c === 'N'), false, n.g === 'f' ? 'mi' : 'f');
   push(otherNum, [c, ...trap, ...conf, ...ALL], !plural);
   const A = [], N = [];
   nearMissNoun(n, c, plural, cn).slice(0, 2).forEach(f => { if (!N.includes(f)) N.push(f); });
@@ -225,7 +228,7 @@ function ruleLabel(h) {
 }
 const RULE_GROUPS = [
   [/^(martwić się|dbać|prosić|pytać|kłócić się|walczyć) o/, 'o + biernik (martwić się, dbać, prosić o…)'],
-  [/^(słuchać|dotykać|spróbować|pilnować|brakuje)/, 'dopełniacz po czasowniku (słuchać, dotykać, pilnować…)'],
+  [/^(słuchać|dotykać|spróbować|pilnować|brakuje|uczyć)/, 'dopełniacz po czasowniku (uczyć się, słuchać, dotykać…)'],
   [/^cieszyć się z/, 'cieszyć się z + dopełniacz'],
   [/^(towarzyszyć|dokuczać|ufać)/, 'celownik po czasowniku (ufać, towarzyszyć, dokuczać…)'],
   [/^przeciwko/, 'przeciwko + celownik'],
@@ -253,7 +256,7 @@ const RULE_GROUPS = [
 function adjLemmaOf(q) {
   const n = NOUNS[q.ni]; if (!n) return null;
   const first = q.base.split(' ')[0];
-  return n.adjs.find(a => adjFor(a, n.g, 'N', false) === first) || null;
+  return n.adjs.find(a => adjFor(a, n.g, 'N', n.noSg, n.g === 'mp') === first) || null;
 }
 // zwraca { et, cc, rl } — typ błędu, wybrany przypadek ('D' albo 'D+' dla l. mn.), etykieta reguły
 function analyzeAnswer(q, gotA, gotN, adjOk, nounOk, diaOnly) {

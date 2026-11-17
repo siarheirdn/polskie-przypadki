@@ -21,7 +21,7 @@ const GROUPS = [
 ];
 
 // Мужеличная форма мн. ч. для прилагательных, которые встречаются с лицами
-const VIR = { nowy: 'nowi', miły: 'mili', sympatyczny: 'sympatyczni', młody: 'młodzi', mały: 'mali', młodszy: 'młodsi', stary: 'starzy', dobry: 'dobrzy', bliski: 'bliscy', uprzejmy: 'uprzejmi', doświadczony: 'doświadczeni', zagraniczny: 'zagraniczni', zdolny: 'zdolni', pilny: 'pilni', ważny: 'ważni', wysoki: 'wysocy', znany: 'znani', starszy: 'starsi' };
+const VIR = { nowy: 'nowi', miły: 'mili', sympatyczny: 'sympatyczni', młody: 'młodzi', mały: 'mali', młodszy: 'młodsi', stary: 'starzy', dobry: 'dobrzy', bliski: 'bliscy', uprzejmy: 'uprzejmi', doświadczony: 'doświadczeni', zagraniczny: 'zagraniczni', zdolny: 'zdolni', pilny: 'pilni', tani: 'tani', letni: 'letni', ważny: 'ważni', wysoki: 'wysocy', znany: 'znani', starszy: 'starsi' };
 
 const NOUNS = [
   // ---- взрослые люди (cat: people)
@@ -49,19 +49,19 @@ const NOUNS = [
   ['kotka', 'f', 'pets', 'kotka|kotki|kotce|kotkę|kotką|kotce;kotki|kotek|kotkom|kotki|kotkami|kotkach', ['mały', 'młody', 'rudy']],
   ['zwierzątko', 'n', 'pets', 'zwierzątko|zwierzątka|zwierzątku|zwierzątko|zwierzątkiem|zwierzątku;zwierzątka|zwierzątek|zwierzątkom|zwierzątka|zwierzątkami|zwierzątkach', ['mały', 'domowy']],
   // ---- вещи (cat: obj) + теги для особых предложений
-  ['telefon', 'mi', 'obj', 'telefon|telefonu|telefonowi|telefon|telefonem|telefonie;telefony|telefonów|telefonom|telefony|telefonami|telefonach', ['nowy', 'stary', 'drogi'], ['carry', 'use', 'nav']],
+  ['telefon', 'mi', 'obj', 'telefon|telefonu|telefonowi|telefon|telefonem|telefonie;telefony|telefonów|telefonom|telefony|telefonami|telefonach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use', 'nav']],
   ['portfel', 'mi', 'obj', 'portfel|portfela|portfelowi|portfel|portfelem|portfelu;portfele|portfeli|portfelom|portfele|portfelami|portfelach', ['nowy', 'stary', 'skórzany'], ['carry', 'use']],
   ['klucz', 'mi', 'obj', 'klucz|klucza|kluczowi|klucz|kluczem|kluczu;klucze|kluczy|kluczom|klucze|kluczami|kluczach', ['mały', 'stary', 'zapasowy'], ['carry']],
   ['długopis', 'mi', 'obj', 'długopis|długopisu|długopisowi|długopis|długopisem|długopisie;długopisy|długopisów|długopisom|długopisy|długopisami|długopisach', ['nowy', 'czerwony', 'niebieski'], ['carry', 'use']],
   ['zeszyt', 'mi', 'obj', 'zeszyt|zeszytu|zeszytowi|zeszyt|zeszytem|zeszycie;zeszyty|zeszytów|zeszytom|zeszyty|zeszytami|zeszytach', ['nowy', 'gruby', 'czysty'], ['carry']],
   ['słownik', 'mi', 'obj', 'słownik|słownika|słownikowi|słownik|słownikiem|słowniku;słowniki|słowników|słownikom|słowniki|słownikami|słownikach', ['gruby', 'nowy', 'stary'], ['use']],
   ['parasol', 'mi', 'obj', 'parasol|parasola|parasolowi|parasol|parasolem|parasolu;parasole|parasoli|parasolom|parasole|parasolami|parasolach', ['duży', 'czarny', 'nowy'], ['carry', 'use', 'rain']],
-  ['płaszcz', 'mi', 'obj', 'płaszcz|płaszcza|płaszczowi|płaszcz|płaszczem|płaszczu;płaszcze|płaszczy|płaszczom|płaszcze|płaszczami|płaszczach', ['ciepły', 'zimowy', 'nowy'], ['warm']],
+  ['płaszcz', 'mi', 'obj', 'płaszcz|płaszcza|płaszczowi|płaszcz|płaszczem|płaszczu;płaszcze|płaszczy|płaszczom|płaszcze|płaszczami|płaszczach', ['ciepły', 'zimowy', 'nowy', 'letni'], ['warm']],
   ['obraz', 'mi', 'obj', 'obraz|obrazu|obrazowi|obraz|obrazem|obrazie;obrazy|obrazów|obrazom|obrazy|obrazami|obrazach', ['stary', 'piękny', 'duży'], ['look']],
   ['książka', 'f', 'obj', 'książka|książki|książce|książkę|książką|książce;książki|książek|książkom|książki|książkami|książkach', ['ciekawy', 'gruby', 'nowy'], ['carry']],
   ['torba', 'f', 'obj', 'torba|torby|torbie|torbę|torbą|torbie;torby|toreb|torbom|torby|torbami|torbach', ['duży', 'sportowy', 'skórzany'], ['use', 'container']],
   ['mapa', 'f', 'obj', 'mapa|mapy|mapie|mapę|mapą|mapie;mapy|map|mapom|mapy|mapami|mapach', ['stary', 'dokładny', 'nowy'], ['carry', 'use', 'nav', 'look']],
-  ['kurtka', 'f', 'obj', 'kurtka|kurtki|kurtce|kurtkę|kurtką|kurtce;kurtki|kurtek|kurtkom|kurtki|kurtkami|kurtkach', ['ciepły', 'zimowy', 'nowy'], ['warm']],
+  ['kurtka', 'f', 'obj', 'kurtka|kurtki|kurtce|kurtkę|kurtką|kurtce;kurtki|kurtek|kurtkom|kurtki|kurtkami|kurtkach', ['ciepły', 'zimowy', 'nowy', 'letni'], ['warm']],
   ['teczka', 'f', 'obj', 'teczka|teczki|teczce|teczkę|teczką|teczce;teczki|teczek|teczkom|teczki|teczkami|teczkach', ['skórzany', 'czerwony', 'nowy'], ['carry', 'container']],
   ['pudełko', 'n', 'obj', 'pudełko|pudełka|pudełku|pudełko|pudełkiem|pudełku;pudełka|pudełek|pudełkom|pudełka|pudełkami|pudełkach', ['mały', 'duży', 'kartonowy'], ['container']],
   ['zdjęcie', 'n', 'obj', 'zdjęcie|zdjęcia|zdjęciu|zdjęcie|zdjęciem|zdjęciu;zdjęcia|zdjęć|zdjęciom|zdjęcia|zdjęciami|zdjęciach', ['stary', 'ładny', 'kolorowy'], ['look', 'photo']],
@@ -98,32 +98,32 @@ const NOUNS = [
   ['sowa', 'f', 'zoo', 'sowa|sowy|sowie|sowę|sową|sowie;sowy|sów|sowom|sowy|sowami|sowach', ['stary', 'mały', 'biały']],
   ['zwierzę', 'n', 'zoo', 'zwierzę|zwierzęcia|zwierzęciu|zwierzę|zwierzęciem|zwierzęciu;zwierzęta|zwierząt|zwierzętom|zwierzęta|zwierzętami|zwierzętach', ['dziki', 'egzotyczny', 'duży']],
   // ---- miejsca
-  ['sklep', 'mi', 'place', 'sklep|sklepu|sklepowi|sklep|sklepem|sklepie;sklepy|sklepów|sklepom|sklepy|sklepami|sklepach', ['mały', 'nowy', 'pobliski'], ['work', 'meet', 'view', 'like']],
+  ['sklep', 'mi', 'place', 'sklep|sklepu|sklepowi|sklep|sklepem|sklepie;sklepy|sklepów|sklepom|sklepy|sklepami|sklepach', ['mały', 'nowy', 'pobliski', 'tani'], ['work', 'meet', 'view', 'like']],
   ['park', 'mi', 'place', 'park|parku|parkowi|park|parkiem|parku;parki|parków|parkom|parki|parkami|parkach', ['duży', 'ładny', 'pobliski'], ['view', 'like', 'nice', 'through']],
   ['ogród', 'mi', 'place', 'ogród|ogrodu|ogrodowi|ogród|ogrodem|ogrodzie;ogrody|ogrodów|ogrodom|ogrody|ogrodami|ogrodach', ['botaniczny', 'mały', 'piękny'], ['view', 'like', 'nice', 'through']],
   ['las', 'mi', 'place', 'las|lasu|lasowi|las|lasem|lesie;lasy|lasów|lasom|lasy|lasami|lasach', ['duży', 'pobliski', 'ciemny'], ['view', 'like', 'through']],
   ['teatr', 'mi', 'place', 'teatr|teatru|teatrowi|teatr|teatrem|teatrze;teatry|teatrów|teatrom|teatry|teatrami|teatrach', ['stary', 'nowy', 'mały'], ['work', 'meet', 'view', 'like', 'nice']],
   ['szpital', 'mi', 'place', 'szpital|szpitala|szpitalowi|szpital|szpitalem|szpitalu;szpitale|szpitali|szpitalom|szpitale|szpitalami|szpitalach', ['nowy', 'pobliski', 'duży'], ['work', 'meet', 'view']],
-  ['hotel', 'mi', 'place', 'hotel|hotelu|hotelowi|hotel|hotelem|hotelu;hotele|hoteli|hotelom|hotele|hotelami|hotelach', ['drogi', 'mały', 'nowy'], ['work', 'meet', 'view']],
+  ['hotel', 'mi', 'place', 'hotel|hotelu|hotelowi|hotel|hotelem|hotelu;hotele|hoteli|hotelom|hotele|hotelami|hotelach', ['drogi', 'mały', 'nowy', 'tani'], ['work', 'meet', 'view']],
   ['bank', 'mi', 'place', 'bank|banku|bankowi|bank|bankiem|banku;banki|banków|bankom|banki|bankami|bankach', ['pobliski', 'nowy', 'duży'], ['work', 'meet']],
   ['kino', 'n', 'place', 'kino|kina|kinu|kino|kinem|kinie;kina|kin|kinom|kina|kinami|kinach', ['stary', 'mały', 'nowy'], ['work', 'meet', 'view', 'like', 'nice']],
   ['biuro', 'n', 'place', 'biuro|biura|biuru|biuro|biurem|biurze;biura|biur|biurom|biura|biurami|biurach', ['nowy', 'duży', 'mały'], ['work', 'private']],
-  ['mieszkanie', 'n', 'place', 'mieszkanie|mieszkania|mieszkaniu|mieszkanie|mieszkaniem|mieszkaniu;mieszkania|mieszkań|mieszkaniom|mieszkania|mieszkaniami|mieszkaniach', ['nowy', 'duży', 'mały'], ['like', 'private']],
+  ['mieszkanie', 'n', 'place', 'mieszkanie|mieszkania|mieszkaniu|mieszkanie|mieszkaniem|mieszkaniu;mieszkania|mieszkań|mieszkaniom|mieszkania|mieszkaniami|mieszkaniach', ['nowy', 'duży', 'mały', 'tani'], ['like', 'private']],
   ['miasto', 'n', 'place', 'miasto|miasta|miastu|miasto|miastem|mieście;miasta|miast|miastom|miasta|miastami|miastach', ['duży', 'mały', 'stary'], ['view', 'like', 'city', 'through']],
   ['szkoła', 'f', 'place', 'szkoła|szkoły|szkole|szkołę|szkołą|szkole;szkoły|szkół|szkołom|szkoły|szkołami|szkołach', ['nowy', 'pobliski', 'duży'], ['work', 'meet', 'view']],
   ['apteka', 'f', 'place', 'apteka|apteki|aptece|aptekę|apteką|aptece;apteki|aptek|aptekom|apteki|aptekami|aptekach', ['pobliski', 'nowy', 'mały'], ['work', 'meet']],
   ['biblioteka', 'f', 'place', 'biblioteka|biblioteki|bibliotece|bibliotekę|biblioteką|bibliotece;biblioteki|bibliotek|bibliotekom|biblioteki|bibliotekami|bibliotekach', ['miejski', 'stary', 'duży'], ['work', 'meet', 'view', 'like', 'nice']],
-  ['restauracja', 'f', 'place', 'restauracja|restauracji|restauracji|restaurację|restauracją|restauracji;restauracje|restauracji|restauracjom|restauracje|restauracjami|restauracjach', ['drogi', 'włoski', 'mały'], ['work', 'meet', 'like', 'nice']],
+  ['restauracja', 'f', 'place', 'restauracja|restauracji|restauracji|restaurację|restauracją|restauracji;restauracje|restauracji|restauracjom|restauracje|restauracjami|restauracjach', ['drogi', 'włoski', 'mały', 'tani'], ['work', 'meet', 'like', 'nice']],
   ['kawiarnia', 'f', 'place', 'kawiarnia|kawiarni|kawiarni|kawiarnię|kawiarnią|kawiarni;kawiarnie|kawiarni|kawiarniom|kawiarnie|kawiarniami|kawiarniach', ['mały', 'przytulny', 'pobliski'], ['work', 'meet', 'view', 'like', 'nice']],
   // ---- pojazdy
-  ['rower', 'mi', 'vehicle', 'rower|roweru|rowerowi|rower|rowerem|rowerze;rowery|rowerów|rowerom|rowery|rowerami|rowerach', ['nowy', 'stary', 'elektryczny'], ['ride']],
-  ['samochód', 'mi', 'vehicle', 'samochód|samochodu|samochodowi|samochód|samochodem|samochodzie;samochody|samochodów|samochodom|samochody|samochodami|samochodach', ['nowy', 'stary', 'elektryczny'], ['car']],
+  ['rower', 'mi', 'vehicle', 'rower|roweru|rowerowi|rower|rowerem|rowerze;rowery|rowerów|rowerom|rowery|rowerami|rowerach', ['nowy', 'stary', 'elektryczny', 'tani'], ['ride']],
+  ['samochód', 'mi', 'vehicle', 'samochód|samochodu|samochodowi|samochód|samochodem|samochodzie;samochody|samochodów|samochodom|samochody|samochodami|samochodach', ['nowy', 'stary', 'elektryczny', 'tani'], ['car']],
   ['motocykl', 'mi', 'vehicle', 'motocykl|motocykla|motocyklowi|motocykl|motocyklem|motocyklu;motocykle|motocykli|motocyklom|motocykle|motocyklami|motocyklach', ['nowy', 'stary', 'czerwony'], ['ride']],
   ['hulajnoga', 'f', 'vehicle', 'hulajnoga|hulajnogi|hulajnodze|hulajnogę|hulajnogą|hulajnodze;hulajnogi|hulajnóg|hulajnogom|hulajnogi|hulajnogami|hulajnogach', ['elektryczny', 'nowy'], ['ride']],
   // ---- więcej rzeczy
   ['kubek', 'mi', 'obj', 'kubek|kubka|kubkowi|kubek|kubkiem|kubku;kubki|kubków|kubkom|kubki|kubkami|kubkach', ['duży', 'nowy', 'ulubiony']],
-  ['zegarek', 'mi', 'obj', 'zegarek|zegarka|zegarkowi|zegarek|zegarkiem|zegarku;zegarki|zegarków|zegarkom|zegarki|zegarkami|zegarkach', ['nowy', 'stary', 'drogi'], ['carry', 'use']],
-  ['laptop', 'mi', 'obj', 'laptop|laptopa|laptopowi|laptop|laptopem|laptopie;laptopy|laptopów|laptopom|laptopy|laptopami|laptopach', ['nowy', 'stary', 'służbowy'], ['carry', 'use']],
+  ['zegarek', 'mi', 'obj', 'zegarek|zegarka|zegarkowi|zegarek|zegarkiem|zegarku;zegarki|zegarków|zegarkom|zegarki|zegarkami|zegarkach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use']],
+  ['laptop', 'mi', 'obj', 'laptop|laptopa|laptopowi|laptop|laptopem|laptopie;laptopy|laptopów|laptopom|laptopy|laptopami|laptopach', ['nowy', 'stary', 'służbowy', 'tani'], ['carry', 'use']],
   // ---- więcej jedzenia
   ['pomidor', 'mi', 'food', 'pomidor|pomidora|pomidorowi|pomidor|pomidorem|pomidorze;pomidory|pomidorów|pomidorom|pomidory|pomidorami|pomidorach', ['świeży', 'dojrzały', 'czerwony'], ['piece', 'salad', 'sandwich', 'dislike', 'vit']],
   ['ogórek', 'mi', 'food', 'ogórek|ogórka|ogórkowi|ogórek|ogórkiem|ogórku;ogórki|ogórków|ogórkom|ogórki|ogórkami|ogórkach', ['świeży', 'kiszony', 'zielony'], ['piece', 'salad', 'sandwich', 'dislike', 'vit']],
@@ -160,9 +160,24 @@ const NOUNS = [
   ['kościół', 'mi', 'place', 'kościół|kościoła|kościołowi|kościół|kościołem|kościele;kościoły|kościołów|kościołom|kościoły|kościołami|kościołach', ['stary', 'zabytkowy', 'mały'], ['meet', 'view', 'nice']],
   ['dworzec', 'mi', 'place', 'dworzec|dworca|dworcowi|dworzec|dworcem|dworcu;dworce|dworców|dworcom|dworce|dworcami|dworcach', ['główny', 'nowy', 'stary'], ['work', 'meet', 'view']],
   ['wieś', 'f', 'place', 'wieś|wsi|wsi|wieś|wsią|wsi;wsie|wsi|wsiom|wsie|wsiami|wsiach', ['mały', 'spokojny', 'stary'], ['city', 'like', 'view', 'through']],
-].map(([lemma, g, cat, forms, adjs, tags, noPl]) => {
-  const [sg, pl] = forms.split(';').map(s => s.split('|'));
-  return { lemma, g, cat, sg, pl, adjs, tags: tags || [], noPl: !!noPl };
+  // ---- tylko liczba mnoga (pluralia tantum): same formy l. mn., ostatnie pole = 'pt'
+  ['okulary', 'mi', 'obj', 'okulary|okularów|okularom|okulary|okularami|okularach', ['nowy', 'stary', 'drogi'], ['pt'], 'pt'],
+  ['spodnie', 'f', 'obj', 'spodnie|spodni|spodniom|spodnie|spodniami|spodniach', ['nowy', 'czarny', 'ciepły'], ['pt', 'warm'], 'pt'],
+  ['nożyczki', 'f', 'obj', 'nożyczki|nożyczek|nożyczkom|nożyczki|nożyczkami|nożyczkach', ['ostry', 'mały', 'nowy'], ['pt'], 'pt'],
+  ['drzwi', 'f', 'furniture', 'drzwi|drzwi|drzwiom|drzwi|drzwiami|drzwiach', ['drewniany', 'stary', 'nowy'], ['pt', 'wall'], 'pt'],
+  ['rodzice', 'mp', 'people', 'rodzice|rodziców|rodzicom|rodziców|rodzicami|rodzicach', ['młody', 'miły', 'sympatyczny'], ['pt', 'stranger'], 'pt'],
+  // ---- nauka (rzeczowniki do czasowników typu „uczyć się czego”)
+  ['język', 'mi', 'learn', 'język|języka|językowi|język|językiem|języku;języki|języków|językom|języki|językami|językach', ['obcy', 'trudny', 'nowy'], ['study']],
+  ['piosenka', 'f', 'learn', 'piosenka|piosenki|piosence|piosenkę|piosenką|piosence;piosenki|piosenek|piosenkom|piosenki|piosenkami|piosenkach', ['polski', 'nowy', 'wesoły'], ['study']],
+  ['wiersz', 'mi', 'learn', 'wiersz|wiersza|wierszowi|wiersz|wierszem|wierszu;wiersze|wierszy|wierszom|wiersze|wierszami|wierszach', ['krótki', 'trudny', 'polski'], ['study']],
+  ['słowo', 'n', 'learn', 'słowo|słowa|słowu|słowo|słowem|słowie;słowa|słów|słowom|słowa|słowami|słowach', ['nowy', 'trudny', 'polski'], ['study']],
+  ['zadanie', 'n', 'learn', 'zadanie|zadania|zadaniu|zadanie|zadaniem|zadaniu;zadania|zadań|zadaniom|zadania|zadaniami|zadaniach', ['trudny', 'domowy', 'nowy']],
+  ['gra', 'f', 'learn', 'gra|gry|grze|grę|grą|grze;gry|gier|grom|gry|grami|grach', ['nowy', 'trudny', 'komputerowy'], ['study']],
+].map(([lemma, g, cat, forms, adjs, tags, flag]) => {
+  const parts = forms.split(';').map(s => s.split('|'));
+  const noSg = flag === 'pt';
+  const [sg, pl] = noSg ? [parts[0], parts[0]] : parts;
+  return { lemma, g, cat, sg, pl, adjs, tags: tags || [], noPl: flag === true, noSg };
 });
 
 // Шаблоны: ___ — место для двух слов. pl — вариант для мн. ч. (если отличается), sgOnly — только ед. ч.
@@ -212,7 +227,7 @@ const TEMPLATES = [
   { cat: 'obj', c: 'G', tag: 'use', sgOnly: true, sg: 'Od roku codziennie używam ___ i jestem bardzo zadowolony.', hint: 'używać czego? — dopełniacz.' },
   { cat: 'obj', c: 'D', tag: 'look', sg: 'W muzeum długo przyglądałem się ___, bo zauważyłem ciekawy szczegół.', hint: 'przyglądać się czemu? — celownik.' },
   { cat: 'obj', c: 'D', tag: 'nav', sg: 'Zgubiliśmy się w górach, ale dzięki ___ szybko znaleźliśmy drogę do schroniska.', hint: 'dzięki czemu? — celownik.' },
-  { cat: 'obj', c: 'D', tag: 'warm', sg: 'Było bardzo zimno, ale dzięki ___ wcale nie zmarzłem.', pl: 'Było bardzo zimno, ale dzięki ___ wcale nie zmarzliśmy.', hint: 'dzięki czemu? — celownik.' },
+  { cat: 'obj', c: 'D', tag: 'warm', noAdj: ['letni'], sg: 'Było bardzo zimno, ale dzięki ___ wcale nie zmarzłem.', pl: 'Było bardzo zimno, ale dzięki ___ wcale nie zmarzliśmy.', hint: 'dzięki czemu? — celownik.' },
   { cat: 'obj', c: 'D', tag: 'rain', sg: 'Cały dzień padał deszcz, ale dzięki ___ wcale nie zmokłem.', pl: 'Cały dzień padał deszcz, ale dzięki ___ wcale nie zmokliśmy.', hint: 'dzięki czemu? — celownik.' },
   { cat: 'obj', c: 'A', notTag: 'photo', noAdj: ['służbowy', 'zapasowy'], sg: 'W zeszłym tygodniu kupiłem przez internet ___, chociaż wcale tego nie planowałem.', hint: 'kupić co? — biernik.' },
   { cat: 'obj', c: 'A', tag: 'carry', sg: 'Musiałem wrócić z przystanku, bo zostawiłem w domu ___.', hint: 'zostawić co? — biernik.' },
@@ -408,7 +423,7 @@ const TEMPLATES = [
   { cat: 'obj', c: 'I', x: true, tag: 'use', sgOnly: true, trap: ['A'], sg: 'Syn od rana bawi się ___ i nie chce jeść obiadu.', hint: 'bawić się czym? — narzędnik.' },
   { cat: 'obj', c: 'A', x: true, tag: 'carry', sgOnly: true, trap: ['I', 'L'], sg: 'Wróciłem do domu po ___, bo bez tego nie mogłem pracować.', hint: 'po + biernik: wrócić po co? (po rosyjsku „за чем” — narzędnik, tu inaczej!).' },
   { cat: 'obj', c: 'N', x: true, tag: 'carry', plOnly: true, trap: ['G'], sg: 'Na biurku leżą trzy ___ i kilka rachunków.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
-  { cat: 'obj', c: 'G', x: true, plOnly: true, noAdj: ['stary', 'ulubiony'], trap: ['A', 'N'], sg: 'Kupiłem w promocji pięć ___, bo cena była naprawdę dobra.', hint: 'pięć i więcej + dopełniacz l. mn.' },
+  { cat: 'obj', c: 'G', x: true, plOnly: true, notTag: 'pt', noAdj: ['stary', 'ulubiony'], trap: ['A', 'N'], sg: 'Kupiłem w promocji pięć ___, bo cena była naprawdę dobra.', hint: 'pięć i więcej + dopełniacz l. mn.' },
   { cat: 'food', c: 'A', x: true, tag: 'share', trap: ['L'], sg: 'Dzieci pokłóciły się o ___, więc musiałem podzielić wszystko na pół.', hint: 'kłócić się o co? — biernik. Ale: mówić o czym? — miejscownik.' },
   { cat: 'food', c: 'G', x: true, tag: 'yum', trap: ['A'], sg: 'Spróbuj koniecznie ___, bo naprawdę warto.', hint: 'spróbować czego? — dopełniacz (po rosyjsku „попробовать что” — biernik, tu inaczej!).' },
   { cat: 'food', c: 'A', x: true, noAdj: ['gotowany'], trap: ['I', 'L'], sg: 'Idę do sklepu po ___, bo na kolację przychodzą goście.', hint: 'po + biernik: iść po co? (po rosyjsku „за чем” — narzędnik, tu inaczej!).' },
@@ -427,6 +442,26 @@ const TEMPLATES = [
   { cat: 'vehicle', c: 'L', x: true, plOnly: true, trap: ['A', 'I'], sg: 'Mój wujek świetnie zna się na ___ i sam wszystko naprawia.', hint: 'znać się na czym? — miejscownik.' },
   { cat: 'furniture', c: 'G', notTag: 'wall', sgOnly: true, sg: 'Zamiast ___ wstawiliśmy do pokoju regał na książki.', hint: 'zamiast + dopełniacz.' },
   { cat: 'water', c: 'G', sgOnly: true, sg: 'Wzdłuż ___ prowadzi ścieżka rowerowa, więc często jeździmy tam w weekendy.', hint: 'wzdłuż + dopełniacz.' },
+// ===== drzwi / półka (meble „przy ścianie”) =====
+  { cat: 'furniture', c: 'A', tag: 'wall', sg: 'W sobotę pomalowaliśmy ___ na biało, żeby pokój wyglądał jaśniej.', hint: 'pomalować co? — biernik.' },
+  { cat: 'furniture', c: 'D', tag: 'wall', sg: 'Przyjrzałem się uważnie ___ i zauważyłem głęboką rysę.', hint: 'przyjrzeć się czemu? — celownik.' },
+  { cat: 'furniture', c: 'L', tag: 'wall', trap: ['A'], sg: 'Na ___ zostały ślady farby po ostatnim remoncie.', hint: 'na czym? (gdzie?) — miejscownik.' },
+  { cat: 'furniture', c: 'G', tag: 'wall', sg: 'Bez ___ ten pokój wygląda dziwnie pusto.', hint: 'bez + dopełniacz.' },
+  // ===== nauka =====
+  { cat: 'learn', c: 'G', x: true, tag: 'study', trap: ['A', 'D'], sg: 'Od miesiąca uczę się ___, ale ciągle robię błędy.', hint: 'uczyć się czego? — dopełniacz (po rosyjsku „учить что” — biernik, tu inaczej!).' },
+  { cat: 'learn', c: 'G', x: true, tag: 'study', trap: ['A', 'D'], sg: 'Nauczycielka uczy dzieci ___ już od pierwszej klasy.', hint: 'uczyć kogo czego? — dopełniacz (po rosyjsku „учить чему” — celownik, tu inaczej!).' },
+  { cat: 'learn', c: 'G', sg: 'Zupełnie nie rozumiem ___, więc poprosiłem nauczyciela o pomoc.', hint: 'Po przeczeniu (nie rozumiem) — dopełniacz.' },
+  { cat: 'learn', c: 'G', x: true, tag: 'study', plOnly: true, trap: ['A', 'N'], sg: 'Znam już dużo ___, ale ciągle chcę poznawać kolejne.', hint: 'dużo czego? — dopełniacz liczby mnogiej.' },
+  { cat: 'learn', c: 'A', sg: 'Dopiero po trzech godzinach zrozumiałem ___ i mogłem iść spać.', hint: 'zrozumieć co? — biernik.' },
+  { cat: 'learn', c: 'A', x: true, trap: ['L'], sg: 'Nauczyciel zapytał mnie o ___, a ja nic nie pamiętałem.', hint: 'pytać o co? — biernik. Ale: mówić o czym? — miejscownik.' },
+  { cat: 'learn', c: 'D', sg: 'Poświęciłem ___ cały wieczór i wcale tego nie żałuję.', hint: 'poświęcić czemu? — celownik.' },
+  { cat: 'learn', c: 'D', sg: 'Dzięki ___ nauka idzie mi teraz dużo szybciej.', hint: 'dzięki czemu? — celownik.' },
+  { cat: 'learn', c: 'I', sg: 'Mam duży problem {z} ___, dlatego biorę dodatkowe lekcje.', hint: 'z czym? — narzędnik.' },
+  { cat: 'learn', c: 'I', sg: 'Uczniowie bardzo interesują się ___ i chętnie przychodzą na zajęcia.', hint: 'interesować się czym? — narzędnik.' },
+  { cat: 'learn', c: 'L', sg: 'Na lekcji długo rozmawialiśmy o ___, a potem pisaliśmy test.', hint: 'o czym? — miejscownik.' },
+  { cat: 'learn', c: 'L', sg: 'Ciągle myślę o ___ i nie mogę zasnąć.', hint: 'myśleć o czym? — miejscownik.' },
+  { cat: 'learn', c: 'N', plOnly: true, sg: 'W tym podręczniku są ___, których jeszcze nie znam.', hint: 'Co jest? — podmiot, mianownik.' },
+  { cat: 'learn', c: 'N', x: true, plOnly: true, trap: ['G'], sg: 'Na jutro zostały mi jeszcze trzy ___, więc dziś nie wychodzę z domu.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
 ];
 
 
