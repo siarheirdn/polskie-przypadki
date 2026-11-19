@@ -479,7 +479,7 @@ function saveProgress(s) {
 }
 
 // Wersja treści: po zmianie zdań lub wariantów pytania bez odpowiedzi w starych sesjach są układane od nowa
-const CONTENT_V = 8;
+const CONTENT_V = 9;
 function refreshQuestions(s, doc) {
   if (doc.v === CONTENT_V) return;
   const used = new Set();
