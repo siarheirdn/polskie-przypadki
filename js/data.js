@@ -49,10 +49,10 @@ const NOUNS = [
   ['kotka', 'f', 'pets', 'kotka|kotki|kotce|kotkę|kotką|kotce;kotki|kotek|kotkom|kotki|kotkami|kotkach', ['mały', 'młody', 'rudy']],
   ['zwierzątko', 'n', 'pets', 'zwierzątko|zwierzątka|zwierzątku|zwierzątko|zwierzątkiem|zwierzątku;zwierzątka|zwierzątek|zwierzątkom|zwierzątka|zwierzątkami|zwierzątkach', ['mały', 'domowy']],
   // ---- вещи (cat: obj) + теги для особых предложений
-  ['telefon', 'mi', 'obj', 'telefon|telefonu|telefonowi|telefon|telefonem|telefonie;telefony|telefonów|telefonom|telefony|telefonami|telefonach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use', 'nav']],
+  ['telefon', 'mi', 'obj', 'telefon|telefonu|telefonowi|telefon|telefonem|telefonie;telefony|telefonów|telefonom|telefony|telefonami|telefonach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use', 'nav', 'gadget']],
   ['portfel', 'mi', 'obj', 'portfel|portfela|portfelowi|portfel|portfelem|portfelu;portfele|portfeli|portfelom|portfele|portfelami|portfelach', ['nowy', 'stary', 'skórzany'], ['carry', 'use']],
   ['klucz', 'mi', 'obj', 'klucz|klucza|kluczowi|klucz|kluczem|kluczu;klucze|kluczy|kluczom|klucze|kluczami|kluczach', ['mały', 'stary', 'zapasowy'], ['carry', 'plain']],
-  ['długopis', 'mi', 'obj', 'długopis|długopisu|długopisowi|długopis|długopisem|długopisie;długopisy|długopisów|długopisom|długopisy|długopisami|długopisach', ['nowy', 'czerwony', 'niebieski'], ['carry', 'use']],
+  ['długopis', 'mi', 'obj', 'długopis|długopisu|długopisowi|długopis|długopisem|długopisie;długopisy|długopisów|długopisom|długopisy|długopisami|długopisach', ['nowy', 'czerwony', 'niebieski'], ['carry', 'use', 'gadget']],
   ['zeszyt', 'mi', 'obj', 'zeszyt|zeszytu|zeszytowi|zeszyt|zeszytem|zeszycie;zeszyty|zeszytów|zeszytom|zeszyty|zeszytami|zeszytach', ['nowy', 'gruby', 'czysty'], ['carry', 'plain']],
   ['słownik', 'mi', 'obj', 'słownik|słownika|słownikowi|słownik|słownikiem|słowniku;słowniki|słowników|słownikom|słowniki|słownikami|słownikach', ['gruby', 'nowy', 'stary'], ['use']],
   ['parasol', 'mi', 'obj', 'parasol|parasola|parasolowi|parasol|parasolem|parasolu;parasole|parasoli|parasolom|parasole|parasolami|parasolach', ['duży', 'czarny', 'nowy'], ['carry', 'use', 'rain']],
@@ -122,8 +122,8 @@ const NOUNS = [
   ['hulajnoga', 'f', 'vehicle', 'hulajnoga|hulajnogi|hulajnodze|hulajnogę|hulajnogą|hulajnodze;hulajnogi|hulajnóg|hulajnogom|hulajnogi|hulajnogami|hulajnogach', ['elektryczny', 'nowy'], ['ride']],
   // ---- więcej rzeczy
   ['kubek', 'mi', 'obj', 'kubek|kubka|kubkowi|kubek|kubkiem|kubku;kubki|kubków|kubkom|kubki|kubkami|kubkach', ['duży', 'nowy', 'ulubiony']],
-  ['zegarek', 'mi', 'obj', 'zegarek|zegarka|zegarkowi|zegarek|zegarkiem|zegarku;zegarki|zegarków|zegarkom|zegarki|zegarkami|zegarkach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use']],
-  ['laptop', 'mi', 'obj', 'laptop|laptopa|laptopowi|laptop|laptopem|laptopie;laptopy|laptopów|laptopom|laptopy|laptopami|laptopach', ['nowy', 'stary', 'służbowy', 'tani'], ['carry', 'use']],
+  ['zegarek', 'mi', 'obj', 'zegarek|zegarka|zegarkowi|zegarek|zegarkiem|zegarku;zegarki|zegarków|zegarkom|zegarki|zegarkami|zegarkach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use', 'gadget']],
+  ['laptop', 'mi', 'obj', 'laptop|laptopa|laptopowi|laptop|laptopem|laptopie;laptopy|laptopów|laptopom|laptopy|laptopami|laptopach', ['nowy', 'stary', 'służbowy', 'tani'], ['carry', 'use', 'gadget']],
   // ---- więcej jedzenia
   ['pomidor', 'mi', 'food', 'pomidor|pomidora|pomidorowi|pomidor|pomidorem|pomidorze;pomidory|pomidorów|pomidorom|pomidory|pomidorami|pomidorach', ['świeży', 'dojrzały', 'czerwony'], ['piece', 'salad', 'sandwich', 'dislike', 'vit']],
   ['ogórek', 'mi', 'food', 'ogórek|ogórka|ogórkowi|ogórek|ogórkiem|ogórku;ogórki|ogórków|ogórkom|ogórki|ogórkami|ogórkach', ['świeży', 'kiszony', 'zielony'], ['piece', 'salad', 'sandwich', 'dislike', 'vit']],
@@ -403,7 +403,7 @@ const TEMPLATES = [
   // ===== Osobliwości polskiej składni i wyjątki (x: true — takie zdania losowane są częściej) =====
   { cat: 'people', c: 'A', x: true, trap: ['L'], tag: 'close', sg: 'Bardzo martwię się o ___, bo od tygodnia nie odbiera telefonu.', pl: 'Bardzo martwię się o ___, bo od tygodnia nie odbierają telefonu.', hint: 'martwić się o kogo? — biernik (po rosyjsku „беспокоиться о ком” — tu inaczej!). Ale: mówić o kim? — miejscownik.' },
   { cat: 'people', c: 'A', x: true, trap: ['L'], sg: 'Dziennikarz długo pytał mnie o ___, ale niewiele mogłem powiedzieć.', hint: 'pytać o kogo? — biernik. Ale: mówić o kim? — miejscownik.' },
-  { cat: 'people', c: 'G', x: true, trap: ['A'], sg: 'Dzieci uważnie słuchają ___, bo opowiada bardzo ciekawie.', pl: 'Dzieci uważnie słuchają ___, bo opowiadają bardzo ciekawie.', hint: 'słuchać kogo? czego? — dopełniacz (po rosyjsku „слушать кого” — biernik, tu inaczej!).' },
+  { cat: 'people', c: 'G', x: true, notTag: ['stranger', 'friend'], noAdj: ['miły', 'sympatyczny'], trap: ['A'], sg: 'Na zebraniu wszyscy uważnie słuchają ___, bo mówi o bardzo ważnych sprawach.', pl: 'Na zebraniu wszyscy uważnie słuchają ___, bo mówią o bardzo ważnych sprawach.', hint: 'słuchać kogo? czego? — dopełniacz (po rosyjsku „слушать кого” — biernik, tu inaczej!).' },
   { cat: 'people', c: 'G', x: true, trap: ['A'], notTag: 'stranger', sg: 'Na dzisiejszym spotkaniu brakuje tylko ___, więc jeszcze chwilę poczekamy.', hint: 'brakuje kogo? czego? — dopełniacz.' },
   { cat: 'people', c: 'D', x: true, trap: ['G'], sg: 'Nikt z nas nie ma nic przeciwko ___, więc decyzja zapadła szybko.', hint: 'przeciwko + celownik (po rosyjsku „против кого” — dopełniacz, tu inaczej!).' },
   { cat: 'people', c: 'D', x: true, trap: ['A'], sg: 'Towarzyszyłem ___ w drodze na dworzec, bo było już bardzo późno.', hint: 'towarzyszyć komu? — celownik (po rosyjsku „сопровождать кого” — biernik, tu inaczej!).' },
@@ -420,7 +420,7 @@ const TEMPLATES = [
   { cat: 'obj', c: 'A', x: true, tag: 'carry', sgOnly: true, trap: ['L'], noAdj: ['nowy', 'stary', 'drogi', 'tani', 'skórzany', 'mały'], sg: 'Poprosiłem kolegę o ___, bo swoje rzeczy zostawiłem w domu.', hint: 'prosić o co? — biernik (po rosyjsku „просить о чём” — tu inaczej!). Ale: mówić o czym? — miejscownik.' },
   { cat: 'obj', c: 'G', x: true, tag: 'carry', sgOnly: true, trap: ['A'], noAdj: ['czysty'], sg: 'Pilnuj dobrze ___, bo w tłumie łatwo coś zgubić.', hint: 'pilnować czego? — dopełniacz.' },
   { cat: 'obj', c: 'G', x: true, sgOnly: true, noAdj: ['stary', 'zapasowy', 'służbowy', 'czysty', 'kartonowy'], trap: ['I', 'D'], notTag: 'plain', sg: 'Córka bardzo się cieszy {z} ___, bo dostała to w prezencie od babci.', hint: 'cieszyć się z czego? — dopełniacz (po rosyjsku „радоваться чему” — celownik, tu inaczej!).' },
-  { cat: 'obj', c: 'I', x: true, tag: 'use', sgOnly: true, trap: ['A'], sg: 'Syn od rana bawi się ___ i nie chce jeść obiadu.', hint: 'bawić się czym? — narzędnik.' },
+  { cat: 'obj', c: 'I', x: true, tag: 'gadget', sgOnly: true, noAdj: ['tani', 'czerwony', 'niebieski'], trap: ['A'], sg: 'Syn od rana bawi się ___ taty, chociaż dobrze wie, że nie wolno.', hint: 'bawić się czym? — narzędnik.' },
   { cat: 'obj', c: 'A', x: true, tag: 'carry', sgOnly: true, trap: ['I', 'L'], sg: 'Wróciłem do domu po ___, bo bez tego nie mogłem pracować.', hint: 'po + biernik: wrócić po co? (po rosyjsku „за чем” — narzędnik, tu inaczej!).' },
   { cat: 'obj', c: 'N', x: true, plOnly: true, trap: ['G'], notTag: ['pt', 'plain'], noAdj: ['stary', 'ulubiony', 'służbowy', 'zapasowy'], sg: 'W sklepie zostały już tylko trzy ___, więc trzeba się spieszyć.', hint: 'trzy, cztery + mianownik l. mn. (po rosyjsku „три новых…” — dopełniacz, tu inaczej!).' },
   { cat: 'obj', c: 'G', x: true, plOnly: true, noAdj: ['stary', 'ulubiony'], trap: ['A', 'N'], notTag: ['pt', 'plain'], sg: 'Kupiłem w promocji pięć ___, bo cena była naprawdę dobra.', hint: 'pięć i więcej + dopełniacz l. mn.' },
