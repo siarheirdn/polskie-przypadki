@@ -21,32 +21,32 @@ const GROUPS = [
 ];
 
 // Мужеличная форма мн. ч. для прилагательных, которые встречаются с лицами
-const VIR = { nowy: 'nowi', miły: 'mili', sympatyczny: 'sympatyczni', młody: 'młodzi', mały: 'mali', młodszy: 'młodsi', stary: 'starzy', dobry: 'dobrzy', bliski: 'bliscy', uprzejmy: 'uprzejmi', doświadczony: 'doświadczeni', zagraniczny: 'zagraniczni', zdolny: 'zdolni', pilny: 'pilni', tani: 'tani', letni: 'letni', ważny: 'ważni', wysoki: 'wysocy', znany: 'znani', starszy: 'starsi' };
+const VIR = { nowy: 'nowi', miły: 'mili', sympatyczny: 'sympatyczni', młody: 'młodzi', mały: 'mali', młodszy: 'młodsi', stary: 'starzy', dobry: 'dobrzy', bliski: 'bliscy', uprzejmy: 'uprzejmi', doświadczony: 'doświadczeni', zagraniczny: 'zagraniczni', zdolny: 'zdolni', pilny: 'pilni', tani: 'tani', letni: 'letni', ważny: 'ważni', wysoki: 'wysocy', znany: 'znani', starszy: 'starsi', grzeczny: 'grzeczni', wesoły: 'weseli', ambitny: 'ambitni', dawny: 'dawni', najlepszy: 'najlepsi' };
 
 const NOUNS = [
   // ---- взрослые люди (cat: people)
-  ['lekarz', 'mp', 'people', 'lekarz|lekarza|lekarzowi|lekarza|lekarzem|lekarzu;lekarze|lekarzy|lekarzom|lekarzy|lekarzami|lekarzach', ['nowy', 'miły', 'młody'], ['visit']],
-  ['sąsiad', 'mp', 'people', 'sąsiad|sąsiada|sąsiadowi|sąsiada|sąsiadem|sąsiedzie;sąsiedzi|sąsiadów|sąsiadom|sąsiadów|sąsiadami|sąsiadach', ['nowy', 'miły', 'sympatyczny'], ['visit', 'ask', 'close']],
-  ['student', 'mp', 'people', 'student|studenta|studentowi|studenta|studentem|studencie;studenci|studentów|studentom|studentów|studentami|studentach', ['nowy', 'miły', 'sympatyczny'], ['ask']],
-  ['nauczyciel', 'mp', 'people', 'nauczyciel|nauczyciela|nauczycielowi|nauczyciela|nauczycielem|nauczycielu;nauczyciele|nauczycieli|nauczycielom|nauczycieli|nauczycielami|nauczycielach', ['nowy', 'młody', 'sympatyczny']],
-  ['kolega', 'mp', 'people', 'kolega|kolegi|koledze|kolegę|kolegą|koledze;koledzy|kolegów|kolegom|kolegów|kolegami|kolegach', ['nowy', 'miły', 'sympatyczny'], ['visit', 'close']],
-  ['kierowca', 'mp', 'people', 'kierowca|kierowcy|kierowcy|kierowcę|kierowcą|kierowcy;kierowcy|kierowców|kierowcom|kierowców|kierowcami|kierowcach', ['nowy', 'miły', 'młody'], ['ask']],
-  ['pracownik', 'mp', 'people', 'pracownik|pracownika|pracownikowi|pracownika|pracownikiem|pracowniku;pracownicy|pracowników|pracownikom|pracowników|pracownikami|pracownikach', ['nowy', 'młody', 'sympatyczny']],
-  ['lekarka', 'f', 'people', 'lekarka|lekarki|lekarce|lekarkę|lekarką|lekarce;lekarki|lekarek|lekarkom|lekarki|lekarkami|lekarkach', ['nowy', 'miły', 'młody'], ['visit']],
-  ['sąsiadka', 'f', 'people', 'sąsiadka|sąsiadki|sąsiadce|sąsiadkę|sąsiadką|sąsiadce;sąsiadki|sąsiadek|sąsiadkom|sąsiadki|sąsiadkami|sąsiadkach', ['nowy', 'miły', 'sympatyczny'], ['visit', 'ask', 'close']],
-  ['studentka', 'f', 'people', 'studentka|studentki|studentce|studentkę|studentką|studentce;studentki|studentek|studentkom|studentki|studentkami|studentkach', ['nowy', 'miły', 'sympatyczny'], ['ask']],
-  ['nauczycielka', 'f', 'people', 'nauczycielka|nauczycielki|nauczycielce|nauczycielkę|nauczycielką|nauczycielce;nauczycielki|nauczycielek|nauczycielkom|nauczycielki|nauczycielkami|nauczycielkach', ['nowy', 'młody', 'sympatyczny']],
-  ['koleżanka', 'f', 'people', 'koleżanka|koleżanki|koleżance|koleżankę|koleżanką|koleżance;koleżanki|koleżanek|koleżankom|koleżanki|koleżankami|koleżankach', ['nowy', 'miły', 'sympatyczny'], ['visit', 'close']],
+  ['lekarz', 'mp', 'people', 'lekarz|lekarza|lekarzowi|lekarza|lekarzem|lekarzu;lekarze|lekarzy|lekarzom|lekarzy|lekarzami|lekarzach', ['nowy', 'miły', 'młody', 'doświadczony'], ['visit']],
+  ['sąsiad', 'mp', 'people', 'sąsiad|sąsiada|sąsiadowi|sąsiada|sąsiadem|sąsiedzie;sąsiedzi|sąsiadów|sąsiadom|sąsiadów|sąsiadami|sąsiadach', ['nowy', 'miły', 'sympatyczny', 'starszy'], ['visit', 'ask', 'close']],
+  ['student', 'mp', 'people', 'student|studenta|studentowi|studenta|studentem|studencie;studenci|studentów|studentom|studentów|studentami|studentach', ['nowy', 'miły', 'sympatyczny', 'zagraniczny'], ['ask']],
+  ['nauczyciel', 'mp', 'people', 'nauczyciel|nauczyciela|nauczycielowi|nauczyciela|nauczycielem|nauczycielu;nauczyciele|nauczycieli|nauczycielom|nauczycieli|nauczycielami|nauczycielach', ['nowy', 'młody', 'sympatyczny', 'doświadczony']],
+  ['kolega', 'mp', 'people', 'kolega|kolegi|koledze|kolegę|kolegą|koledze;koledzy|kolegów|kolegom|kolegów|kolegami|kolegach', ['nowy', 'miły', 'sympatyczny', 'dawny'], ['visit', 'close']],
+  ['kierowca', 'mp', 'people', 'kierowca|kierowcy|kierowcy|kierowcę|kierowcą|kierowcy;kierowcy|kierowców|kierowcom|kierowców|kierowcami|kierowcach', ['nowy', 'miły', 'młody', 'doświadczony'], ['ask']],
+  ['pracownik', 'mp', 'people', 'pracownik|pracownika|pracownikowi|pracownika|pracownikiem|pracowniku;pracownicy|pracowników|pracownikom|pracowników|pracownikami|pracownikach', ['nowy', 'młody', 'sympatyczny', 'doświadczony']],
+  ['lekarka', 'f', 'people', 'lekarka|lekarki|lekarce|lekarkę|lekarką|lekarce;lekarki|lekarek|lekarkom|lekarki|lekarkami|lekarkach', ['nowy', 'miły', 'młody', 'doświadczony'], ['visit']],
+  ['sąsiadka', 'f', 'people', 'sąsiadka|sąsiadki|sąsiadce|sąsiadkę|sąsiadką|sąsiadce;sąsiadki|sąsiadek|sąsiadkom|sąsiadki|sąsiadkami|sąsiadkach', ['nowy', 'miły', 'sympatyczny', 'starszy'], ['visit', 'ask', 'close']],
+  ['studentka', 'f', 'people', 'studentka|studentki|studentce|studentkę|studentką|studentce;studentki|studentek|studentkom|studentki|studentkami|studentkach', ['nowy', 'miły', 'sympatyczny', 'zagraniczny'], ['ask']],
+  ['nauczycielka', 'f', 'people', 'nauczycielka|nauczycielki|nauczycielce|nauczycielkę|nauczycielką|nauczycielce;nauczycielki|nauczycielek|nauczycielkom|nauczycielki|nauczycielkami|nauczycielkach', ['nowy', 'młody', 'sympatyczny', 'doświadczony']],
+  ['koleżanka', 'f', 'people', 'koleżanka|koleżanki|koleżance|koleżankę|koleżanką|koleżance;koleżanki|koleżanek|koleżankom|koleżanki|koleżankami|koleżankach', ['nowy', 'miły', 'sympatyczny', 'dawny'], ['visit', 'close']],
   // ---- дети (cat: kids)
-  ['dziecko', 'n', 'kids', 'dziecko|dziecka|dziecku|dziecko|dzieckiem|dziecku;dzieci|dzieci|dzieciom|dzieci|dziećmi|dzieciach', ['mały', 'młodszy']],
-  ['chłopiec', 'mp', 'kids', 'chłopiec|chłopca|chłopcu|chłopca|chłopcem|chłopcu;chłopcy|chłopców|chłopcom|chłopców|chłopcami|chłopcach', ['mały', 'młodszy']],
-  ['dziewczynka', 'f', 'kids', 'dziewczynka|dziewczynki|dziewczynce|dziewczynkę|dziewczynką|dziewczynce;dziewczynki|dziewczynek|dziewczynkom|dziewczynki|dziewczynkami|dziewczynkach', ['mały', 'młodszy']],
+  ['dziecko', 'n', 'kids', 'dziecko|dziecka|dziecku|dziecko|dzieckiem|dziecku;dzieci|dzieci|dzieciom|dzieci|dziećmi|dzieciach', ['mały', 'młodszy', 'grzeczny', 'wesoły']],
+  ['chłopiec', 'mp', 'kids', 'chłopiec|chłopca|chłopcu|chłopca|chłopcem|chłopcu;chłopcy|chłopców|chłopcom|chłopców|chłopcami|chłopcach', ['mały', 'młodszy', 'grzeczny', 'wesoły']],
+  ['dziewczynka', 'f', 'kids', 'dziewczynka|dziewczynki|dziewczynce|dziewczynkę|dziewczynką|dziewczynce;dziewczynki|dziewczynek|dziewczynkom|dziewczynki|dziewczynkami|dziewczynkach', ['mały', 'młodszy', 'grzeczny', 'wesoły']],
   // ---- домашние животные (cat: pets)
-  ['pies', 'ma', 'pets', 'pies|psa|psu|psa|psem|psie;psy|psów|psom|psy|psami|psach', ['mały', 'młody', 'czarny']],
-  ['kot', 'ma', 'pets', 'kot|kota|kotu|kota|kotem|kocie;koty|kotów|kotom|koty|kotami|kotach', ['mały', 'rudy', 'czarny']],
-  ['chomik', 'ma', 'pets', 'chomik|chomika|chomikowi|chomika|chomikiem|chomiku;chomiki|chomików|chomikom|chomiki|chomikami|chomikach', ['mały', 'młody']],
+  ['pies', 'ma', 'pets', 'pies|psa|psu|psa|psem|psie;psy|psów|psom|psy|psami|psach', ['mały', 'młody', 'czarny', 'wierny']],
+  ['kot', 'ma', 'pets', 'kot|kota|kotu|kota|kotem|kocie;koty|kotów|kotom|koty|kotami|kotach', ['mały', 'rudy', 'czarny', 'puszysty']],
+  ['chomik', 'ma', 'pets', 'chomik|chomika|chomikowi|chomika|chomikiem|chomiku;chomiki|chomików|chomikom|chomiki|chomikami|chomikach', ['mały', 'młody', 'biały']],
   ['papuga', 'f', 'pets', 'papuga|papugi|papudze|papugę|papugą|papudze;papugi|papug|papugom|papugi|papugami|papugach', ['kolorowy', 'mały']],
-  ['kotka', 'f', 'pets', 'kotka|kotki|kotce|kotkę|kotką|kotce;kotki|kotek|kotkom|kotki|kotkami|kotkach', ['mały', 'młody', 'rudy']],
+  ['kotka', 'f', 'pets', 'kotka|kotki|kotce|kotkę|kotką|kotce;kotki|kotek|kotkom|kotki|kotkami|kotkach', ['mały', 'młody', 'rudy', 'puszysty']],
   ['zwierzątko', 'n', 'pets', 'zwierzątko|zwierzątka|zwierzątku|zwierzątko|zwierzątkiem|zwierzątku;zwierzątka|zwierzątek|zwierzątkom|zwierzątka|zwierzątkami|zwierzątkach', ['mały', 'domowy']],
   // ---- вещи (cat: obj) + теги для особых предложений
   ['telefon', 'mi', 'obj', 'telefon|telefonu|telefonowi|telefon|telefonem|telefonie;telefony|telefonów|telefonom|telefony|telefonami|telefonach', ['nowy', 'stary', 'drogi', 'tani'], ['carry', 'use', 'nav', 'gadget', 'always', 'job']],
@@ -73,19 +73,19 @@ const NOUNS = [
   ['ciasto', 'n', 'food', 'ciasto|ciasta|ciastu|ciasto|ciastem|cieście;ciasta|ciast|ciastom|ciasta|ciastami|ciastach', ['świeży', 'domowy', 'czekoladowy'], ['treat', 'yum', 'share', 'piece', 'bake']],
   // ---- nowi ludzie
   ['kierownik', 'mp', 'people', 'kierownik|kierownika|kierownikowi|kierownika|kierownikiem|kierowniku;kierownicy|kierowników|kierownikom|kierowników|kierownikami|kierownikach', ['nowy', 'doświadczony', 'miły'], ['visit']],
-  ['policjant', 'mp', 'people', 'policjant|policjanta|policjantowi|policjanta|policjantem|policjancie;policjanci|policjantów|policjantom|policjantów|policjantami|policjantach', ['młody', 'uprzejmy', 'miły'], ['stranger', 'ask']],
+  ['policjant', 'mp', 'people', 'policjant|policjanta|policjantowi|policjanta|policjantem|policjancie;policjanci|policjantów|policjantom|policjantów|policjantami|policjantach', ['młody', 'uprzejmy', 'miły', 'doświadczony'], ['stranger', 'ask']],
   ['sprzedawca', 'mp', 'people', 'sprzedawca|sprzedawcy|sprzedawcy|sprzedawcę|sprzedawcą|sprzedawcy;sprzedawcy|sprzedawców|sprzedawcom|sprzedawców|sprzedawcami|sprzedawcach', ['miły', 'uprzejmy', 'młody'], ['stranger', 'ask']],
   ['turysta', 'mp', 'people', 'turysta|turysty|turyście|turystę|turystą|turyście;turyści|turystów|turystom|turystów|turystami|turystach', ['zagraniczny', 'młody'], ['stranger']],
-  ['przyjaciel', 'mp', 'people', 'przyjaciel|przyjaciela|przyjacielowi|przyjaciela|przyjacielem|przyjacielu;przyjaciele|przyjaciół|przyjaciołom|przyjaciół|przyjaciółmi|przyjaciołach', ['stary', 'dobry', 'bliski'], ['visit', 'friend', 'close']],
+  ['przyjaciel', 'mp', 'people', 'przyjaciel|przyjaciela|przyjacielowi|przyjaciela|przyjacielem|przyjacielu;przyjaciele|przyjaciół|przyjaciołom|przyjaciół|przyjaciółmi|przyjaciołach', ['stary', 'dobry', 'bliski', 'najlepszy'], ['visit', 'friend', 'close']],
   ['kierowniczka', 'f', 'people', 'kierowniczka|kierowniczki|kierowniczce|kierowniczkę|kierowniczką|kierowniczce;kierowniczki|kierowniczek|kierowniczkom|kierowniczki|kierowniczkami|kierowniczkach', ['nowy', 'doświadczony', 'miły'], ['visit']],
   ['policjantka', 'f', 'people', 'policjantka|policjantki|policjantce|policjantkę|policjantką|policjantce;policjantki|policjantek|policjantkom|policjantki|policjantkami|policjantkach', ['młody', 'uprzejmy'], ['stranger', 'ask']],
   ['sprzedawczyni', 'f', 'people', 'sprzedawczyni|sprzedawczyni|sprzedawczyni|sprzedawczynię|sprzedawczynią|sprzedawczyni;sprzedawczynie|sprzedawczyń|sprzedawczyniom|sprzedawczynie|sprzedawczyniami|sprzedawczyniach', ['miły', 'uprzejmy', 'młody'], ['stranger', 'ask']],
   ['turystka', 'f', 'people', 'turystka|turystki|turystce|turystkę|turystką|turystce;turystki|turystek|turystkom|turystki|turystkami|turystkach', ['zagraniczny', 'młody'], ['stranger']],
-  ['przyjaciółka', 'f', 'people', 'przyjaciółka|przyjaciółki|przyjaciółce|przyjaciółkę|przyjaciółką|przyjaciółce;przyjaciółki|przyjaciółek|przyjaciółkom|przyjaciółki|przyjaciółkami|przyjaciółkach', ['stary', 'dobry', 'bliski'], ['visit', 'friend', 'close']],
+  ['przyjaciółka', 'f', 'people', 'przyjaciółka|przyjaciółki|przyjaciółce|przyjaciółkę|przyjaciółką|przyjaciółce;przyjaciółki|przyjaciółek|przyjaciółkom|przyjaciółki|przyjaciółkami|przyjaciółkach', ['stary', 'dobry', 'bliski', 'najlepszy'], ['visit', 'friend', 'close']],
   ['pielęgniarka', 'f', 'people', 'pielęgniarka|pielęgniarki|pielęgniarce|pielęgniarkę|pielęgniarką|pielęgniarce;pielęgniarki|pielęgniarek|pielęgniarkom|pielęgniarki|pielęgniarkami|pielęgniarkach', ['nowy', 'miły', 'doświadczony']],
   // ---- szkoła
-  ['uczeń', 'mp', 'school', 'uczeń|ucznia|uczniowi|ucznia|uczniem|uczniu;uczniowie|uczniów|uczniom|uczniów|uczniami|uczniach', ['nowy', 'zdolny', 'pilny']],
-  ['uczennica', 'f', 'school', 'uczennica|uczennicy|uczennicy|uczennicę|uczennicą|uczennicy;uczennice|uczennic|uczennicom|uczennice|uczennicami|uczennicach', ['nowy', 'zdolny', 'pilny']],
+  ['uczeń', 'mp', 'school', 'uczeń|ucznia|uczniowi|ucznia|uczniem|uczniu;uczniowie|uczniów|uczniom|uczniów|uczniami|uczniach', ['nowy', 'zdolny', 'pilny', 'ambitny', 'grzeczny']],
+  ['uczennica', 'f', 'school', 'uczennica|uczennicy|uczennicy|uczennicę|uczennicą|uczennicy;uczennice|uczennic|uczennicom|uczennice|uczennicami|uczennicach', ['nowy', 'zdolny', 'pilny', 'ambitny', 'grzeczny']],
   // ---- zoo
   ['koń', 'ma', 'zoo', 'koń|konia|koniowi|konia|koniem|koniu;konie|koni|koniom|konie|końmi|koniach', ['młody', 'duży', 'dziki']],
   ['lis', 'ma', 'zoo', 'lis|lisa|lisowi|lisa|lisem|lisie;lisy|lisów|lisom|lisy|lisami|lisach', ['rudy', 'młody', 'mały']],
@@ -173,6 +173,12 @@ const NOUNS = [
   ['słowo', 'n', 'learn', 'słowo|słowa|słowu|słowo|słowem|słowie;słowa|słów|słowom|słowa|słowami|słowach', ['nowy', 'trudny', 'polski'], ['study', 'small']],
   ['zadanie', 'n', 'learn', 'zadanie|zadania|zadaniu|zadanie|zadaniem|zadaniu;zadania|zadań|zadaniom|zadania|zadaniami|zadaniach', ['trudny', 'domowy', 'nowy']],
   ['gra', 'f', 'learn', 'gra|gry|grze|grę|grą|grze;gry|gier|grom|gry|grami|grach', ['nowy', 'trudny', 'komputerowy'], ['study']],
+  // ---- kolejne słowa (dopisane na końcu — statystyki pamiętają numer słowa)
+  ['pierwszoklasista', 'mp', 'school', 'pierwszoklasista|pierwszoklasisty|pierwszoklasiście|pierwszoklasistę|pierwszoklasistą|pierwszoklasiście;pierwszoklasiści|pierwszoklasistów|pierwszoklasistom|pierwszoklasistów|pierwszoklasistami|pierwszoklasistach', ['nowy', 'grzeczny', 'wesoły']],
+  ['pierwszoklasistka', 'f', 'school', 'pierwszoklasistka|pierwszoklasistki|pierwszoklasistce|pierwszoklasistkę|pierwszoklasistką|pierwszoklasistce;pierwszoklasistki|pierwszoklasistek|pierwszoklasistkom|pierwszoklasistki|pierwszoklasistkami|pierwszoklasistkach', ['nowy', 'grzeczny', 'wesoły']],
+  ['królik', 'ma', 'pets', 'królik|królika|królikowi|królika|królikiem|króliku;króliki|królików|królikom|króliki|królikami|królikach', ['biały', 'mały', 'puszysty']],
+  ['kanarek', 'ma', 'pets', 'kanarek|kanarka|kanarkowi|kanarka|kanarkiem|kanarku;kanarki|kanarków|kanarkom|kanarki|kanarkami|kanarkach', ['żółty', 'mały']],
+  ['żółw', 'ma', 'pets', 'żółw|żółwia|żółwiowi|żółwia|żółwiem|żółwiu;żółwie|żółwi|żółwiom|żółwie|żółwiami|żółwiach', ['mały', 'stary']],
 ].map(([lemma, g, cat, forms, adjs, tags, flag]) => {
   const parts = forms.split(';').map(s => s.split('|'));
   const noSg = flag === 'pt';

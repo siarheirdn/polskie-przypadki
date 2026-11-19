@@ -113,21 +113,31 @@ const isSpecial = t => !!(t.x || t.trap || /!/.test(t.hint));
 const BY_CELL_X = {};
 POOL.forEach(p => { if (isSpecial(TEMPLATES[p.ti])) (BY_CELL_X[p.cell] = BY_CELL_X[p.cell] || []).push(p); });
 const X_SHARE = 0.35;
-function pickItem(cell, used) {
-  const xs = BY_CELL_X[cell];
-  if (xs && Math.random() < X_SHARE) {
-    // najpierw losowe zdanie, potem słowo — żeby każda osobliwość trafiała się równie często
-    const tis = [...new Set(xs.map(o => o.ti))];
-    for (let t = 0; t < 12; t++) { const ti = rnd(tis); const it = rnd(xs.filter(o => o.ti === ti)); if (!used.has(ikey(it))) return it; }
-  }
-  const m = BY_CELL_CAT[cell];
-  for (let t = 0; t < 40; t++) {
-    const byNoun = m[rnd(Object.keys(m))];
-    const it = rnd(byNoun[rnd(Object.keys(byNoun))]);
-    if (!used.has(ikey(it))) return it;
+// Unikamy powtórek: to samo słowo w ostatnich 10 pytaniach, ten sam przymiotnik w ostatnich 4
+const RECENT_N = 10, RECENT_A = 4;
+function pickItem(cell, used, recent) {
+  recent = recent || { n: [], a: [] };
+  const lem = it => NOUNS[it.ni].lemma;
+  const fresh = (it, lvl) => !used.has(ikey(it)) && (lvl > 1 || !recent.n.includes(lem(it))) && (lvl > 0 || !recent.a.includes(it.adj));
+  const xs = BY_CELL_X[cell], wantX = xs && Math.random() < X_SHARE;
+  for (let lvl = 0; lvl < 3; lvl++) {
+    if (wantX) {
+      // najpierw losowe zdanie, potem słowo — żeby każda osobliwość trafiała się równie często
+      const tis = [...new Set(xs.map(o => o.ti))];
+      for (let t = 0; t < 15; t++) { const ti = rnd(tis); const it = rnd(xs.filter(o => o.ti === ti)); if (fresh(it, lvl)) return it; }
+    }
+    // najpierw słowo (każde z równą szansą), potem zdanie
+    const byNoun = BY_CELL_NOUN[cell], nis = Object.keys(byNoun);
+    for (let t = 0; t < 40; t++) { const it = rnd(byNoun[rnd(nis)]); if (fresh(it, lvl)) return it; }
   }
   const free = BY_CELL[cell].filter(o => !used.has(ikey(o)));
   return rnd(free.length ? free : BY_CELL[cell]);
+}
+const BY_CELL_NOUN = {};
+POOL.forEach(p => { const m = (BY_CELL_NOUN[p.cell] = BY_CELL_NOUN[p.cell] || {}); (m[p.ni] = m[p.ni] || []).push(p); });
+function pushRecent(recent, it) {
+  recent.n.push(NOUNS[it.ni].lemma); if (recent.n.length > RECENT_N) recent.n.shift();
+  recent.a.push(it.adj); if (recent.a.length > RECENT_A) recent.a.shift();
 }
 const ALL_CELLS = [];
 // mianownik l. poj. pomijamy: forma jest taka sama jak podana
@@ -255,10 +265,10 @@ function startCaseDrill(key, kind) {
   const [ci, num] = key.split('|'), cells = stats[CK(kind)];
   const ids = (num === 'sg' ? SG_G : PL_G).map(([g]) => ci + ':' + g).filter(id => !SKIP(id));
   const w = ids.map(id => { const x = cells[id]; return x && x.n ? Math.pow((x.wrong + 1) / (x.n + 2), 2) : 0.15; });
-  const sum = w.reduce((a, b) => a + b, 0), used = new Set(), items = [];
+  const sum = w.reduce((a, b) => a + b, 0), used = new Set(), items = [], recent = { n: [], a: [] };
   for (let k = 0; k < 15; k++) {
     let r = Math.random() * sum, j = 0; while (r > w[j] && j < w.length - 1) { r -= w[j]; j++; }
-    const it = pickItem(ids[j], used); used.add(ikey(it)); items.push(it);
+    const it = pickItem(ids[j], used, recent); used.add(ikey(it)); pushRecent(recent, it); items.push(it);
   }
   const c = CASES[+ci];
   session = sessionFromItems(items, 'focus', kind, `Ćwicz: ${c.ru}, ${num === 'sg' ? 'l. poj.' : 'l. mn.'}`);
@@ -419,10 +429,10 @@ function buildSession(mode, count, kind, only) {
       const j = cells.findIndex((c, m) => m > k && c !== cells[k]); if (j > 0) [cells[k], cells[j]] = [cells[j], cells[k]];
     }
   }
-  const used = new Set();
+  const used = new Set(), recent = { n: [], a: [] };
   const items = cells.map(cell => {
-    const item = pickItem(cell, used);
-    used.add(item.ti + '|' + item.ni + '|' + item.plural);
+    const item = pickItem(cell, used, recent);
+    used.add(ikey(item)); pushRecent(recent, item);
     return item;
   });
   return sessionFromItems(items, mode, kind, only && only.length < NC ? filtTitleOf(only) : undefined, only && only.length < NC ? only : undefined);
@@ -479,20 +489,15 @@ function saveProgress(s) {
 }
 
 // Wersja treści: po zmianie zdań lub wariantów pytania bez odpowiedzi w starych sesjach są układane od nowa
-const CONTENT_V = 9;
+const CONTENT_V = 10;
 function refreshQuestions(s, doc) {
   if (doc.v === CONTENT_V) return;
-  const used = new Set();
+  const used = new Set(), recent = { n: [], a: [] };
   s.questions = s.questions.map((qq, k) => {
     if (s.byQ[k]) return qq;
-    let item = null;
-    if (qq.ti != null && qq.ni != null && TEMPLATES[qq.ti] && NOUNS[qq.ni]) {
-      const adj = adjLemmaOf(qq);
-      item = POOL.find(o => o.ti === qq.ti && o.ni === qq.ni && o.plural === !!qq.plural && o.adj === adj && o.cell === qq.cell) || null;
-    }
-    if (!item || used.has(ikey(item))) item = pickItem(qq.cell, used);
+    const item = qq.cell && BY_CELL[qq.cell] ? pickItem(qq.cell, used, recent) : null;
     if (!item) return qq;
-    used.add(ikey(item));
+    used.add(ikey(item)); pushRecent(recent, item);
     return shapeQuestion(item);
   });
   doc.questions = s.questions; doc.v = CONTENT_V;
