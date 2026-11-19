@@ -316,7 +316,7 @@ function recompute() {
     (p.r || []).forEach(r => {
       if ((r.t || 0) <= resetAt || SKIP(r.c)) return;
       const x = cs(k, r.c); x.n++; if (!r.ok) x.wrong++; if (!r.ao) x.adjWrong++; if (!r.no) x.nounWrong++;
-      if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, ga: r.ga, gn: r.gn, dia: r.d || undefined, t: r.t });
+      if (!r.ok) st[lk].push({ s: r.s, base: r.b, cell: r.c, right: r.rt, got: r.ga + ' ' + r.gn, ga: r.ga, gn: r.gn, ti: r.ti, rl: r.rl, dia: r.d || undefined, t: r.t });
       st.all.push(r); (st.allK[p.kind === 'type' ? 'type' : 'choice']).push(r);
       const A = st.an[p.kind === 'type' ? 'type' : 'choice'];
       (A.hist[r.c] = A.hist[r.c] || []).push([r.t || 0, !!r.ok]);
@@ -1061,7 +1061,7 @@ function statsHTML() {
   ${errorsHTML()}`;
 }
 // ---- Lista wszystkich błędnych odpowiedzi (dla wybranego etapu), od najnowszych
-let errCase = -1, errShown = 30, errOpen = false;
+let errOpen = false; const errOpenC = new Set(), errAll = new Set();
 // odpowiedź słowo po słowie: dobre słowo na zielono, błędne na czerwono
 function gotHTML(e) {
   const rw = String(e.right || '').split(' ');
@@ -1071,19 +1071,36 @@ function gotHTML(e) {
 function errorsHTML() {
   const all = stats[LK(statsKind)];
   if (!all.length) return '';
-  const cnt = CASES.map((c, i) => all.filter(e => +e.cell.split(':')[0] === i).length);
-  const list = all.filter(e => errCase < 0 || +e.cell.split(':')[0] === errCase).slice().reverse();
-  const chip = (i, label, n) => `<button class="fchip ${errCase === i ? 'on' : ''}" data-errcase="${i}" ${n ? '' : 'disabled'}>${label} <span class="muted">${n}</span></button>`;
+  // przypadek → reguła → zdania (od najnowszych)
+  const byCase = {};
+  all.slice().reverse().forEach(e => {
+    const ci = +e.cell.split(':')[0];
+    const hint = e.ti != null && TEMPLATES[e.ti] ? TEMPLATES[e.ti].hint : null;
+    const rule = (hint && ruleLabel(hint)) || e.rl || 'pozostałe';
+    const C = byCase[ci] || (byCase[ci] = { n: 0, rules: {} });
+    const R = C.rules[rule] || (C.rules[rule] = { list: [], hints: [] });
+    C.n++; R.list.push(e); if (hint && !R.hints.includes(hint)) R.hints.push(hint);
+  });
+  const item = e => { const g = e.cell.split(':')[1]; return `<div class="erritem">
+      <div class="ex">${esc(e.s).replace('___', '<b class="ok">' + esc(e.right) + '</b>')}</div>
+      <div>Twoja odpowiedź: ${gotHTML(e)}${e.dia ? ' <span class="muted">(tylko polskie znaki)</span>' : ''}</div>
+      <div class="muted">${esc(e.base)}${/→/.test(e.base) ? '' : ' → ' + (g === 'pv' || g === 'pn' ? 'l. mn.' : 'l. poj.')}${e.t ? ' · ' + fmtDate(e.t) : ''}</div>
+    </div>`; };
+  const cases = Object.keys(byCase).map(Number).sort((x, y) => byCase[y].n - byCase[x].n);
   return `<details class="more" id="errDet"${errOpen ? ' open' : ''}><summary>Wszystkie błędne odpowiedzi (${all.length})</summary>
-    <div class="card">
-      <div class="fchips">${chip(-1, 'wszystkie', all.length)}${CASES.map((c, i) => chip(i, c.ru, cnt[i])).join('')}</div>
-      ${list.slice(0, errShown).map(e => { const [ci, g] = e.cell.split(':'); return `<div class="erritem">
-        <div class="ex">${esc(e.s).replace('___', '<b class="ok">' + esc(e.right) + '</b>')}</div>
-        <div>Twoja odpowiedź: ${gotHTML(e)}${e.dia ? ' <span class="muted">(tylko polskie znaki)</span>' : ''}</div>
-        <div class="muted">${esc(e.base)}${/→/.test(e.base) ? '' : ' → ' + (g === 'pv' || g === 'pn' ? 'l. mn.' : 'l. poj.')} · ${CASES[+ci].ru}${e.t ? ' · ' + fmtDate(e.t) : ''}</div>
-      </div>`; }).join('')}
-      ${list.length > errShown ? `<button class="ghost" id="errMore" style="margin-top:10px">Pokaż kolejne (${Math.min(30, list.length - errShown)} z ${list.length - errShown})</button>` : ''}
-    </div>
+    <div class="muted" style="margin:0 0 8px">Pogrupowane według przypadku, który był potrzebny, i według reguły. Pod każdą regułą — dlaczego właśnie ten przypadek.</div>
+    ${cases.map(ci => { const C = byCase[ci];
+      const rules = Object.entries(C.rules).sort((x, y) => y[1].list.length - x[1].list.length);
+      return `<details class="errcase" data-ec="${ci}"${errOpenC.has(ci) ? ' open' : ''}>
+        <summary><b>${CASES[ci].ru}</b> <span class="muted">${CASES[ci].pl}</span> <span class="cnt">${C.n}</span></summary>
+        ${rules.map(([rule, R]) => { const key = ci + '|' + rule, full = errAll.has(key), shown = full ? R.list : R.list.slice(0, 4);
+          return `<div class="errrule">
+            <div class="rhead"><b>${esc(rule)}</b> <span class="cnt">${R.list.length}</span></div>
+            ${R.hints.length ? `<div class="why"><span class="muted">Dlaczego ${CASES[ci].ru}:</span> ${R.hints.slice(0, 4).map(h => esc(h)).join('<br>')}</div>` : ''}
+            ${shown.map(item).join('')}
+            ${R.list.length > shown.length ? `<button class="linkbtn" data-errall="${esc(key)}">Pokaż wszystkie (${R.list.length})</button>` : ''}
+          </div>`; }).join('')}
+      </details>`; }).join('')}
   </details>`;
 }
 // ---- Kopia zapasowa (tylko gdy wyniki są w przeglądarce)
@@ -1266,7 +1283,7 @@ function exportText() {
   return lines.join('\n');
 }
 function bindStats() {
-  bindSeg('statSw', k => { statsKind = k; errCase = -1; errShown = 30; });
+  bindSeg('statSw', k => { statsKind = k; errOpenC.clear(); errAll.clear(); });
   bindPlan(statsKind);
   const bd = document.getElementById('bkDown'); if (bd) bd.onclick = downloadBackup;
   const bu = document.getElementById('bkUp'); if (bu) bu.onchange = () => { if (bu.files && bu.files[0]) importBackup(bu.files[0]); };
@@ -1282,8 +1299,8 @@ function bindStats() {
   };
   const n = document.getElementById('resetNo'); if (n) n.onclick = () => { confirmReset = false; render(); };
   const ed = document.getElementById('errDet'); if (ed) ed.ontoggle = () => { errOpen = ed.open; };
-  document.querySelectorAll('[data-errcase]').forEach(b => b.onclick = () => { errCase = +b.dataset.errcase; errShown = 30; errOpen = true; render(); });
-  const em = document.getElementById('errMore'); if (em) em.onclick = () => { errShown += 30; errOpen = true; render(); };
+  document.querySelectorAll('details.errcase').forEach(d => d.ontoggle = () => { const i = +d.dataset.ec; if (d.open) errOpenC.add(i); else errOpenC.delete(i); });
+  document.querySelectorAll('[data-errall]').forEach(b => b.onclick = () => { errAll.add(b.dataset.errall); errOpen = true; render(); });
   document.querySelectorAll('[data-repdel]').forEach(b => b.onclick = () => { reports.splice(+b.dataset.repdel, 1); saveReports(); render(); });
   const rcp = document.getElementById('repCopy'); if (rcp) rcp.onclick = async () => {
     try { await navigator.clipboard.writeText(reportsText(reports)); rcp.textContent = 'Skopiowano'; }
