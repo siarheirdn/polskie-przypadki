@@ -320,3 +320,7 @@ details.errcase > summary .cnt { margin-left: auto; }
 .errrule { border-top: 1px solid var(--line); padding: 12px 0 6px; }
 .errrule .rhead { display: flex; justify-content: space-between; gap: 8px; }
 .errrule .why { margin: 8px 0 2px; padding: 8px 10px; border-left: 3px solid var(--pen); background: var(--pen-soft); border-radius: 0 8px 8px 0; font-size: 14.5px; }
+
+/* Wykres przewijany w poziomie, gdy odpowiedzi się nie mieszczą */
+.tscroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+svg.trend text.tnum { font: 9px var(--sans); fill: var(--muted); text-anchor: middle; }

@@ -525,6 +525,10 @@ async function resumeSession(id) {
 
 // ===================== Рендер =====================
 function render() {
+  renderView();
+  document.querySelectorAll('.tscroll').forEach(e => { e.scrollLeft = e.scrollWidth; });
+}
+function renderView() {
   const v = document.getElementById('view');
   const hz = document.getElementById('hfsz'); if (hz) { hz.innerHTML = fszHTML(); }
   document.body.classList.remove('focus');
@@ -1169,23 +1173,28 @@ function sessionCells(s) {
 function trendChartHTML(results, title, WINp) {
   const rs = [...results].sort((a, b) => (a.raw.t || 0) - (b.raw.t || 0));
   if (rs.length < 3) return `<div class="card mini"><div class="mtitle"><span class="lbl">${esc(title)}</span></div><div class="muted">Wykres pojawi się po kilku odpowiedziach.</div></div>`;
-  const W = 320, H = 92, top = 8, chartH = 58, tickY = 76, N = rs.length, WIN = WINp || 10;
+  const N = rs.length, WIN = WINp || 10, STEP = 12;
+  // Każda odpowiedź ma stałą szerokość; gdy się nie mieszczą, wykres przewija się (najnowsze po prawej)
+  const wide = (N - 1) * STEP + 12 > 320;
+  const W = wide ? (N - 1) * STEP + 12 : 320, H = wide ? 104 : 92, top = 8, chartH = 58, tickY = 76;
   const pts = rs.map((r, k) => { const from = Math.max(0, k - WIN + 1); const sl = rs.slice(from, k + 1); return sl.filter(x => x.ok).length / sl.length; });
-  const x = k => N === 1 ? W / 2 : 4 + k * (W - 8) / (N - 1);
+  const x = k => wide ? 6 + k * STEP : 6 + k * (W - 12) / (N - 1);
   const y = v => top + (1 - v) * chartH;
   const line = pts.map((v, k) => `${x(k).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const area = `${x(0).toFixed(1)},${y(0)} ${line} ${x(N - 1).toFixed(1)},${y(0)}`;
-  const tw = Math.max(1, Math.min(6, (W - 8) / N - 1));
-  const ticks = rs.map((r, k) => `<rect x="${(x(k) - tw / 2).toFixed(1)}" y="${tickY}" width="${tw.toFixed(1)}" height="10" rx="1" class="${r.ok ? 't-ok' : 't-bad'}"/>`).join('');
+  const tw = wide ? 9 : Math.max(2, Math.min(9, (W - 12) / (N - 1) - 2));
+  const ticks = rs.map((r, k) => `<rect x="${(x(k) - tw / 2).toFixed(1)}" y="${tickY}" width="${tw.toFixed(1)}" height="12" rx="2" class="${r.ok ? 't-ok' : 't-bad'}"><title>${k + 1}</title></rect>`).join('');
+  const marks = wide ? rs.map((r, k) => (k + 1) % 10 === 0 ? `<text x="${Math.min(x(k), W - 8).toFixed(1)}" y="${tickY + 25}" class="tnum">${k + 1}</text>` : '').join('') : '';
   const last = pts[N - 1], first10 = rs.slice(0, Math.min(WIN, N)), firstV = first10.filter(r => r.ok).length / first10.length;
   const delta = Math.round((last - firstV) * 100);
   return `<div class="card mini"><div class="mtitle"><span class="lbl">${esc(title)}</span><span class="muted">ostatnie ${Math.min(WIN, N)}: <b class="${last >= 0.8 ? 'up' : last < 0.5 ? 'down' : ''}">${Math.round(last * 100)}%</b>${N > WIN ? ` (${delta >= 0 ? '+' : ''}${delta} od początku)` : ''}</span></div>
-    <svg class="trend" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Odsetek dobrych odpowiedzi w ostatnich ${WIN}">
+    <div class="tscroll">
+    <svg class="trend" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:${wide ? W + 'px' : '100%'};height:${wide ? 108 : 96}px" role="img" aria-label="Odsetek dobrych odpowiedzi w ostatnich ${WIN}">
       <line x1="0" x2="${W}" y1="${y(0.5)}" y2="${y(0.5)}" class="g50"/><line x1="0" x2="${W}" y1="${y(0.8)}" y2="${y(0.8)}" class="g80"/>
       <polygon points="${area}" class="tarea"/><polyline points="${line}" class="tline"/>
-      ${ticks}
-    </svg>
-    <div class="legend">Linia — odsetek dobrych odpowiedzi w ostatnich ${WIN}; przerywane linie: 50% i 80%. Pod spodem każda odpowiedź: zielona dobra, czerwona zła.</div></div>`;
+      ${marks}${ticks}
+    </svg></div>
+    <div class="legend">Linia — odsetek dobrych odpowiedzi w ostatnich ${WIN}; przerywane linie: 50% i 80%. Pod spodem każda odpowiedź: zielona dobra, czerwona zła${wide ? '. Najnowsze po prawej, starsze — przesuń w lewo' : ''}.</div></div>`;
 }
 function miniStatsHTML(cells, title, sub) {
   const COLS = [['lp', 'l. pojedyncza', null], ['lm', 'l. mnoga', null], ['os', 'męskoosobowy (l. poj.)', 'mp'], ['zw', 'męskozwierzęcy', 'ma'], ['rz', 'męskorzeczowy', 'mi'], ['ż', 'żeński', 'f'], ['nij', 'nijaki', 'n']];
