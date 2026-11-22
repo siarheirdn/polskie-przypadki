@@ -542,7 +542,8 @@ function renderView() {
 function footer() {
   const sid = session && !session.finished && !session.paused && tab === 'train' ? `Sesja <span class="sid">${esc(session.id)}</span>. ` : '';
   return `<div class="foot">${sid}${Store.cloud ? 'Wyniki zapisują się w chmurze i są dostępne na każdym urządzeniu.' : 'Wyniki zapisują się tylko w tej przeglądarce.'}
-  <div id="status">${esc(Store.status)}</div></div>`;
+  <div id="status">${esc(Store.status)}</div>
+  <a class="linkbtn rep" href="${esc(formLink({ rodzaj: 'aplikacja', dane: techInfo() }))}" target="_blank" rel="noopener">Zgłoś problem z aplikacją lub pomysł</a></div>`;
 }
 
 function stageSwitch(id, cur) {
@@ -600,16 +601,40 @@ function reportsIssueUrl() {
   }
   return REPO_ISSUES + '?title=' + encodeURIComponent(`Błędy w zadaniach (${reports.length})`) + '&body=' + encodeURIComponent(body || '');
 }
+// ---- Zgłoszenia przez Google Formularz (pola wypełnione automatycznie)
+const FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdf3m0onDYnrdveQitNkx4gpl9BADYiOk7XJYJb7h1zs1GRPw/viewform';
+const FORM_F = { rodzaj: 'entry.1846280165', zadanie: 'entry.1875578896', komentarz: 'entry.1222691907', dane: 'entry.592381518' };
+let lastErr = '';
+window.addEventListener('error', e => { lastErr = String(e.message || e.error || '') + (e.filename ? ' @ ' + String(e.filename).split('/').pop() + ':' + e.lineno : ''); });
+window.addEventListener('unhandledrejection', e => { lastErr = 'Promise: ' + String((e.reason && e.reason.message) || e.reason || ''); });
+function techInfo(extra) {
+  const parts = [
+    'wersja treści: ' + CONTENT_V,
+    'ekran: ' + window.innerWidth + '×' + window.innerHeight + ' @' + (window.devicePixelRatio || 1),
+    'przeglądarka: ' + navigator.userAgent,
+    'widok: ' + (tab === 'stats' ? 'statystyki' : session ? (session.finished ? 'koniec sesji' : 'pytanie ' + (session.i + 1)) : 'start'),
+    session ? 'sesja: ' + session.id + ' (' + session.kind + ', ' + session.count + ')' : '',
+    lastErr ? 'ostatni błąd: ' + lastErr : '',
+    extra || ''
+  ];
+  return parts.filter(Boolean).join('\n');
+}
+function formLink(fields) {
+  return FORM_URL + '?usp=pp_url' + Object.entries(fields).filter(([, v]) => v).map(([k, v]) => '&' + FORM_F[k] + '=' + encodeURIComponent(String(v).slice(0, 1500))).join('');
+}
+function taskReportLink(s, q) {
+  const res = s.byQ[s.i];
+  const z = [
+    q.sentence.replace('___', '[' + q.adjAnswer + ' ' + q.nounAnswer + ']'),
+    'forma podstawowa: ' + q.base + '; ' + (q.plural ? 'liczba mnoga' : 'liczba pojedyncza') + '; ' + CASES[q.caseIdx].ru + ', ' + groupName(q.group),
+    'warianty: ' + (q.adjOptions || []).join(', ') + ' | ' + (q.nounOptions || []).join(', '),
+    res ? 'odpowiedź ucznia: ' + (res.gotA || '—') + ' ' + (res.gotN || '—') + (res.ok ? ' (dobrze)' : ' (źle)') : 'bez odpowiedzi',
+    'id: zdanie ' + q.ti + ', słowo ' + q.ni
+  ].join('\n');
+  return formLink({ rodzaj: 'zadanie', zadanie: z, dane: techInfo() });
+}
 function reportBoxHTML(s, q) {
-  const r = repOf(q);
-  if (!s.repOpen) return `<button class="linkbtn rep" id="repOpen">${r ? 'Zgłoszono błąd — popraw zgłoszenie' : 'Zgłoś błąd w tym zadaniu'}</button>`;
-  return `<div class="card repbox">
-    <div class="lbl">Co jest nie tak w tym zadaniu?</div>
-    <div class="muted">Np. zdanie brzmi nienaturalnie, forma jest błędna, pasuje więcej niż jedna odpowiedź. Możesz też zaproponować poprawkę.</div>
-    <textarea id="repText" placeholder="Twoja uwaga lub poprawka">${esc(s.repText != null ? s.repText : (r ? r.note : ''))}</textarea>
-    <div class="row"><button class="ghost" id="repSave">Zapisz zgłoszenie</button><button class="ghost" id="repCancel">Anuluj</button>${r ? '<button class="ghost" id="repDel" style="color:var(--red)">Usuń</button>' : ''}</div>
-    <div class="muted" style="margin-top:6px">Zgłoszenia zbierają się w zakładce Statystyki — stamtąd wyślesz je wszystkie naraz.</div>
-  </div>`;
+  return `<a class="linkbtn rep" href="${esc(taskReportLink(s, q))}" target="_blank" rel="noopener">Zgłoś błąd w tym zadaniu</a>`;
 }
 function reportsHTML() {
   if (!reports.length) return `<div class="card"><div class="lbl">Zgłoszenia błędów</div><div class="muted">Brak zgłoszeń. Jeśli w zadaniu coś jest nie tak, kliknij pod pytaniem „Zgłoś błąd w tym zadaniu”.</div></div>`;
@@ -618,8 +643,8 @@ function reportsHTML() {
     ${reports.map((r, i) => `<div class="repitem"><div><div class="ex">${esc(r.sentence).replace('___', '<b>' + esc(r.adj + ' ' + r.noun) + '</b>')}</div>
       <div class="muted">${esc(r.base)} · ${r.plural ? 'l. mn.' : 'l. poj.'} · ${esc(r.cas)}</div><div>${esc(r.note || '(bez komentarza)')}</div></div>
       <button class="tbtn" data-repdel="${i}" title="Usuń zgłoszenie" aria-label="Usuń zgłoszenie">${ICON.close}</button></div>`).join('')}
-    <div class="row" style="margin-top:10px"><a class="ghost abtn" id="repSend" href="${esc(reportsIssueUrl())}" target="_blank" rel="noopener">Wyślij przez GitHub</a><button class="ghost" id="repCopy">Kopiuj tekst</button></div>
-    <div class="muted" style="margin-top:6px">„Wyślij przez GitHub” otwiera gotowe zgłoszenie (potrzebne konto GitHub). Bez konta: skopiuj tekst i wyślij go autorowi dowolnym komunikatorem.</div>
+    <div class="row" style="margin-top:10px"><a class="ghost abtn" id="repSend" href="${esc(formLink({ rodzaj: 'zadanie (zapisane wcześniej)', zadanie: reportsText(reports).slice(0, 1500), dane: techInfo() }))}" target="_blank" rel="noopener">Wyślij formularzem</a><button class="ghost" id="repCopy">Kopiuj tekst</button></div>
+    <div class="muted" style="margin-top:6px">„Wyślij formularzem” otwiera gotowy formularz Google — wystarczy kliknąć „Prześlij”. Nie trzeba się logować.</div>
     ${confirmRepClear ? `<div class="row" style="margin-top:8px"><button class="ghost" id="repClearYes" style="color:var(--red)">Tak, usuń wszystkie</button><button class="ghost" id="repClearNo">Anuluj</button></div>`
       : `<div class="row" style="margin-top:8px"><button class="ghost" id="repClear">Wysłane — wyczyść listę</button></div>`}
   </div>`;
@@ -1051,7 +1076,7 @@ function statsHTML() {
   ${caseTreeHTML(cells)}
   ${planHTML('stats')}
   <details class="more"><summary>Więcej analizy</summary>${analysisHTML(statsKind) || '<div class="card muted">Na razie za mało błędów do analizy.</div>'}</details>
-  <details class="more" id="repDet"${reports.length ? ' open' : ''}><summary>Zgłoszenia błędów w zadaniach${reports.length ? ' (' + reports.length + ')' : ''}</summary>${reportsHTML()}</details>
+  ${reports.length ? `<details class="more" id="repDet" open><summary>Zapisane zgłoszenia (${reports.length})</summary>${reportsHTML()}</details>` : ''}
   <details class="more"><summary>Historia sesji, kopia zapasowa, zerowanie</summary>
     ${historyHTML()}
     ${backupHTML()}

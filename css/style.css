@@ -324,3 +324,4 @@ details.errcase > summary .cnt { margin-left: auto; }
 /* Wykres przewijany w poziomie, gdy odpowiedzi się nie mieszczą */
 .tscroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
 svg.trend text.tnum { font: 9px var(--sans); fill: var(--muted); text-anchor: middle; }
+a.linkbtn { width: fit-content; text-align: center; }
