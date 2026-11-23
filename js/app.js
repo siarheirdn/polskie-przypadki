@@ -281,6 +281,119 @@ function bindPlan(kind) {
   document.querySelectorAll('[data-drill]').forEach(b => b.onclick = () => startDrill(stats.plan.items[+b.dataset.drill], kind));
 }
 
+// ===================== Musztra: temat po temacie, od najsłabszego =====================
+// Temat = przypadek + liczba (np. biernik, l. mn.). Wchodzą tematy z ≥30% błędów (min. 3 odpowiedzi,
+// liczone z ostatnich 40 odpowiedzi ze wszystkich sesji). Temat zaliczony: min. 10 pytań i <20% błędów
+// w ostatnich 10. Po 30 pytaniach bez zaliczenia temat idzie na koniec kolejki (jeden dodatkowy krąg).
+const DR = { IN: 0.3, OUT: 0.2, MIN: 10, MAX: 30, WIN: 10, HIST: 40 };
+const topicCells = key => { const [ci, num] = key.split('|'); return (num === 'sg' ? SG_G : PL_G).map(([g]) => ci + ':' + g).filter(id => !SKIP(id)); };
+const topicName = key => { const [ci, num] = key.split('|'); return CASES[+ci].ru + ', ' + (num === 'sg' ? 'l. poj.' : 'l. mn.'); };
+function drillTopics(kind) {
+  const H = (stats.an && stats.an[kind].hist) || {};
+  const out = [];
+  CASES.forEach((c, ci) => ['sg', 'pl'].forEach(num => {
+    const key = ci + '|' + num, cells = topicCells(key);
+    if (!cells.length) return;
+    const h = cells.flatMap(id => H[id] || []).sort((a, b) => a[0] - b[0]).slice(-DR.HIST);
+    if (h.length < 3) return;
+    const r = h.filter(x => !x[1]).length / h.length;
+    if (r >= DR.IN) out.push({ key, r, n: h.length });
+  }));
+  return out.sort((a, b) => b.r - a.r);
+}
+function drillPick(s) {
+  const D = s.drill, key = D.queue[D.cur], cells = topicCells(key), kind = s.kind;
+  const used = new Set(D.used), recent = D.recent;
+  let it = null;
+  // połowa pytań z tych samych zdań, w których były błędy (inne słowo)
+  const errs = stats[LK(kind)].filter(e => cells.includes(e.cell) && e.ti != null);
+  if (errs.length && Math.random() < 0.5) {
+    for (let t = 0; t < 12 && !it; t++) {
+      const e = rnd(errs), c = POOL.filter(o => o.ti === e.ti && o.cell === e.cell && !used.has(ikey(o)) && !recent.n.includes(NOUNS[o.ni].lemma));
+      if (c.length) it = rnd(c);
+    }
+  }
+  if (!it) {
+    const cs = stats[CK(kind)];
+    const w = cells.map(id => { const x = cs[id]; return x && x.n ? Math.pow((x.wrong + 1) / (x.n + 2), 1.5) : 0.2; });
+    const sum = w.reduce((a, b) => a + b, 0);
+    let r = Math.random() * sum, j = 0; while (r > w[j] && j < w.length - 1) { r -= w[j]; j++; }
+    it = pickItem(cells[j], used, recent);
+  }
+  D.used.push(ikey(it)); if (D.used.length > 400) D.used.shift();
+  pushRecent(recent, it);
+  return it;
+}
+function drillAppend(s) {
+  const q = shapeQuestion(drillPick(s));
+  q.topic = s.drill.queue[s.drill.cur];
+  s.questions.push(q); s.count = s.questions.length;
+}
+function drillSave(s) {
+  Store.write('sessions/' + s.id, { id: s.id, mode: 'drill', kind: s.kind, count: s.count, v: CONTENT_V, title: s.title, cells: null, createdAt: s.createdAt, questions: s.questions, drill: s.drill });
+  saveProgress(s);
+}
+function startMusztra(kind) {
+  const topics = drillTopics(kind);
+  if (!topics.length) return;
+  let id; do { id = newId(); } while (progress[id]);
+  const now = Date.now();
+  session = { id, mode: 'drill', kind, count: 0, title: 'Musztra', questions: [], i: 0, results: [], byQ: {}, front: 0, createdAt: now,
+    selAdj: null, selNoun: null, inAdj: '', inNoun: '',
+    drill: { queue: topics.map(t => t.key), start: topics.map(t => Math.round(t.r * 100)), cur: 0, from: 0, round: 1, deferred: [], log: [], used: [], recent: { n: [], a: [] }, done: false, notice: null } };
+  drillAppend(session); drillSave(session);
+  stage = kind; tab = 'train'; document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'train'));
+  render(); window.scrollTo(0, 0);
+}
+// stan bieżącego tematu: ile pytań, odsetek błędów w ostatnich 10
+function drillState(s) {
+  const D = s.drill, rs = s.results.filter(r => r.qi >= D.from);
+  const last = rs.slice(-DR.WIN), err = last.length ? last.filter(r => !r.ok).length / last.length : 0;
+  return { n: rs.length, err, last: last.length };
+}
+function drillAfterAnswer(s) {
+  const D = s.drill; if (D.done) return;
+  const st = drillState(s), key = D.queue[D.cur];
+  let closed = null;
+  if (st.n >= DR.MIN && st.err < DR.OUT) closed = 'ok';
+  else if (st.n >= DR.MAX) closed = 'later';
+  if (closed) {
+    D.log.push({ key, res: closed, n: st.n, err: Math.round(st.err * 100), round: D.round });
+    if (closed === 'later' && D.round === 1) D.deferred.push(key);
+    D.cur++;
+    if (D.cur >= D.queue.length && D.round === 1 && D.deferred.length) { D.queue = D.queue.concat(D.deferred); D.deferred = []; D.round = 2; }
+    D.notice = { key, res: closed, n: st.n, next: D.cur < D.queue.length ? D.queue[D.cur] : null };
+    D.from = s.questions.length;
+    if (D.cur >= D.queue.length) { D.done = true; drillSave(s); return; }
+  } else D.notice = null;
+  drillAppend(s); drillSave(s);
+}
+function drillBarHTML(s) {
+  const D = s.drill, st = drillState(s), key = D.done ? D.log[D.log.length - 1].key : D.queue[D.cur];
+  const total = D.queue.length, idx = Math.min(D.cur + 1, total);
+  const n = D.notice;
+  return `${n && s.i === D.from ? `<div class="dnote ${n.res}">${n.res === 'ok' ? ICON.okc : ICON.badc}<div><b>${esc(topicName(n.key))}</b> — ${n.res === 'ok' ? 'zaliczone' : 'jeszcze nie, wrócimy do tego później'} (${n.n} ${plural(n.n, 'pytanie', 'pytania', 'pytań')}).${n.next ? ` Teraz: <b>${esc(topicName(n.next))}</b>` : ''}</div></div>` : ''}
+  <div class="dbar"><span>Temat ${idx} z ${total}${D.round === 2 ? ' · powtórka' : ''}: <b>${esc(topicName(key))}</b></span>
+    <span class="muted">${st.n} ${plural(st.n, 'pytanie', 'pytania', 'pytań')}${st.last ? ` · ostatnie ${st.last}: ${Math.round((1 - st.err) * 100)}% dobrze` : ''}</span></div>`;
+}
+function musztraCardHTML(kind, where) {
+  const t = drillTopics(kind);
+  if (!t.length) return where === 'stats' ? `<div class="card"><div class="lbl">Musztra</div><div class="muted">Nie ma tematów z ponad ${DR.IN * 100}% błędów — nie ma czego musztrować. Albo za mało odpowiedzi: zrób najpierw test.</div></div>` : '';
+  return `<div class="card musztra">
+    <div class="lbl">Musztra: temat po temacie</div>
+    <div class="muted">Pytania tylko z jednego tematu naraz, zaczynając od najsłabszego. Przejście dalej, gdy w ostatnich ${DR.WIN} pytaniach jest mniej niż ${DR.OUT * 100}% błędów (minimum ${DR.MIN} pytań).</div>
+    <ol class="dlist">${t.map(x => `<li><b>${esc(topicName(x.key))}</b> <span class="cnt">${Math.round(x.r * 100)}% błędów</span></li>`).join('')}</ol>
+    <button class="big" data-musztra="${kind}">Zacznij musztrę (${kind === 'type' ? 'wpisywanie' : 'wybór'})</button>
+  </div>`;
+}
+function bindMusztra() { document.querySelectorAll('[data-musztra]').forEach(b => b.onclick = () => startMusztra(b.dataset.musztra)); }
+function drillSummaryHTML(s) {
+  const D = s.drill;
+  return `<div class="card"><div class="lbl">Musztra — tematy</div><ul class="list">${D.log.map(l => `<li>${l.res === 'ok' ? '✓' : '✗'} <b>${esc(topicName(l.key))}</b>: ${l.n} ${plural(l.n, 'pytanie', 'pytania', 'pytań')}, w ostatnich 10 — ${l.err}% błędów${l.round === 2 ? ' (powtórka)' : ''}</li>`).join('')}
+  ${D.done ? '' : `<li class="muted">W toku: ${esc(topicName(D.queue[D.cur]))}</li>`}</ul>
+  ${D.log.some(l => l.res === 'later' && l.round === 2) || D.log.filter(l => l.res === 'later').length ? `<div class="muted">Tematy z ✗ warto powtórzyć innego dnia — musztra po teście znowu je znajdzie.</div>` : ''}</div>`;
+}
+
 function emptyAn() { return { hist: {}, rules: {}, types: {}, conf: {}, errs: 0, untyped: 0 }; }
 // stan pola: mało danych / słabe / opanowane (ostatnie 5 odpowiedzi dobrze)
 function cellState(kind, c) {
@@ -479,7 +592,7 @@ function exampleOf(q) {
 function progressDoc(s) {
   return {
     id: s.id, mode: s.mode, kind: s.kind, count: s.count, title: s.title || null, createdAt: s.createdAt, updatedAt: Date.now(),
-    done: s.results.length >= s.count, r: s.results.map(x => x.raw),
+    done: s.drill ? !!s.drill.done : s.results.length >= s.count, r: s.results.map(x => x.raw),
   };
 }
 function saveProgress(s) {
@@ -512,9 +625,10 @@ async function resumeSession(id) {
   progress[id] = p;
   const results = (p.r || []).map((raw, k) => ({ cell: raw.c, ok: raw.ok, adjOk: raw.ao, nounOk: raw.no, diaOnly: !!raw.d, gotA: raw.ga, gotN: raw.gn, qi: raw.qi != null ? raw.qi : k, raw }));
   const byQ = {}; results.forEach(r => byQ[r.qi] = r);
-  session = { id, mode: q.mode, kind: q.kind, count: q.count, title: q.title || null, cells: q.cells || undefined, questions: q.questions, i: 0, results, byQ,
+  session = { id, mode: q.mode, kind: q.kind, count: q.questions.length, title: q.title || null, cells: q.cells || undefined, questions: q.questions, drill: q.drill || undefined, i: 0, results, byQ,
     createdAt: q.createdAt, selAdj: null, selNoun: null, inAdj: '', inNoun: '' };
-  refreshQuestions(session, q);
+  if (session.drill) { session.drill.notice = null; if (!session.drill.done && firstUnanswered(session) < 0) { drillAppend(session); drillSave(session); } }
+  else refreshQuestions(session, q);
   const first = firstUnanswered(session);
   if (first < 0) session.finished = true; else session.i = first;
   // najdalsze miejsce, do którego doszedł użytkownik: dalej przyciskiem „Dalej” nie wolno
@@ -701,7 +815,7 @@ function unfinishedHTML() {
     <div class="lbl">Niedokończone sesje (${list.length})</div>
     <div class="sessrow">
       <select id="sessSel" class="sesssel">
-        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${esc(p.title || kindName(p.kind))} · ${(p.r || []).length} z ${p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
+        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${esc(p.title || kindName(p.kind))} · ${(p.r || []).length}${p.mode === 'drill' ? '' : ' z ' + p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
       </select>
       <button class="ibtn go" id="contBtn" title="Kontynuuj" aria-label="Kontynuuj">
         <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
@@ -724,6 +838,7 @@ function startHTML() {
   return `
   ${introHTML()}
   ${unfinishedHTML()}
+  ${musztraCardHTML(stage, 'start')}
   ${planHTML('start')}
   <h2 class="sub">Nowa sesja</h2>
   ${stageSwitch('stageSw', stage)}
@@ -751,6 +866,7 @@ function bindSeg(id, set) {
 function bindStart() {
   bindSeg('stageSw', k => stage = k);
   bindPlan(stage);
+  bindMusztra();
   bindFilter();
   const qs = document.getElementById('quickStart'); if (qs) qs.onclick = () => { setIntro(false); filt = { cases: [0, 1, 2, 3, 4, 5], nums: ['sg', 'pl'] }; saveFilt(); stage = 'choice'; session = buildSession('test', 20, 'choice', activeCells()); render(); };
   const ic = document.getElementById('introClose'); if (ic) ic.onclick = () => { setIntro(false); render(); };
@@ -879,11 +995,12 @@ function questionHTML() {
   return `
   <div class="topbar">
     <button class="tbtn" id="quit" title="Zakończ — postęp jest zapisany" aria-label="Zakończ sesję">${ICON.close}</button>
-    <div class="tcenter"><div class="tpos">Pytanie ${s.i + 1} z ${s.count}</div>
-      <div class="progress"><div style="width:${Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
+    <div class="tcenter"><div class="tpos">${s.drill ? 'Musztra · pytanie ' + (s.i + 1) : `Pytanie ${s.i + 1} z ${s.count}`}</div>
+      <div class="progress"><div style="width:${s.drill ? Math.max(2, (Math.min(s.drill.cur, s.drill.queue.length) / s.drill.queue.length) * 100) : Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
     <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
     ${fszHTML()}
   </div>
+  ${s.drill ? drillBarHTML(s) : ''}
   <div class="sent">${sentence}</div>
   ${body}
   ${done ? `
@@ -903,7 +1020,7 @@ function questionHTML() {
           ${ex ? `<div class="cap">Inny przykład</div><div class="ex">${esc(ex.sentence).replace('___', '<b>' + hlPhrase(ex.phrase, ex.base) + '</b>')} <span class="muted">(${esc(ex.base)})</span></div>` : ''}
         </div>
       </div>
-    </div>` : `<button class="linkbtn" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń to pytanie</button>`}
+    </div>` : s.drill ? '' : `<button class="linkbtn" id="skip" ${nextU < 0 ? 'disabled' : ''}>Pomiń to pytanie</button>`}
   ${reportBoxHTML(s, q)}
   <div class="actions">
     <button class="ibtn nav-i" id="prev" title="Poprzednie pytanie" aria-label="Poprzednie pytanie" ${s.i === 0 ? 'disabled' : ''}>${ICON.prev}</button>
@@ -978,6 +1095,7 @@ function bindQuestion() {
     s.results.push(r); s.byQ[s.i] = r;
     saveProgress(s);
     recompute();
+    if (s.drill) drillAfterAnswer(s);
     render();
     const nx = document.getElementById('nextU') || document.getElementById('finish'); if (nx) nx.focus({ preventScroll: true });
     const fb = document.getElementById('fb');
@@ -996,7 +1114,7 @@ function bindQuestion() {
 
 function finishHTML() {
   const s = session, r = s.results, ok = r.filter(x => x.ok).length;
-  const finished = r.length >= s.count;
+  const finished = s.drill ? !!s.drill.done : r.length >= s.count;
   const byCase = CASES.map((c, i) => { const a = r.filter(x => +x.cell.split(':')[0] === i); return { name: c.ru, n: a.length, ok: a.filter(x => x.ok).length }; });
   const byGroup = GROUPS.map(g => { const a = r.filter(x => x.cell.split(':')[1] === g.id); return { name: g.ru, n: a.length, ok: a.filter(x => x.ok).length }; });
   const line = x => x.n ? `<li>${esc(x.name)}: ${x.ok} z ${x.n}</li>` : '';
@@ -1004,12 +1122,14 @@ function finishHTML() {
   const nextCount = s.count;
   return `
   <div class="card">
-    <div class="lbl">${finished ? 'Wynik' : 'Sesja przerwana'} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
+    <div class="lbl">${finished ? (s.drill ? 'Musztra zakończona' : 'Wynik') : (s.drill ? 'Musztra przerwana' : 'Sesja przerwana')} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
     <div class="score">${ok} z ${r.length}</div>
     <div class="muted">${r.length ? Math.round(ok / r.length * 100) : 0}% dobrze. Błędy w przymiotnikach: ${r.filter(x => !x.adjOk).length}, w rzeczownikach: ${r.filter(x => !x.nounOk).length}.${dia ? ` W tym tylko w polskich znakach: ${dia}.` : ''}</div>
-    ${finished ? '' : `<div style="margin-top:8px">Odpowiedziano na ${r.length} z ${s.count}. Postęp jest zapisany — sesję <b class="sid">${esc(s.id)}</b> możesz dokończyć później z listy na ekranie startowym.</div>
+    ${finished ? '' : `<div style="margin-top:8px">Odpowiedziano na ${r.length}${s.drill ? '' : ' z ' + s.count}. Postęp jest zapisany — sesję <b class="sid">${esc(s.id)}</b> możesz dokończyć później z listy na ekranie startowym.</div>
       <button class="big" id="resume">Kontynuuj teraz</button>`}
   </div>
+  ${s.drill ? drillSummaryHTML(s) : ''}
+  ${finished && !s.drill ? musztraCardHTML(s.kind, 'finish') : ''}
   ${finished && s.kind === 'choice' && (s.mode === 'test' || s.mode === 'weak') ? `
   <div class="card">
     <div class="lbl">Dalej: etap 2</div>
@@ -1027,6 +1147,7 @@ function bindFinish() {
   if (rs) rs.onclick = () => { s.paused = false; const f = s.byQ[s.i] ? nextUnanswered(s, s.i) : s.i; if (f >= 0) { s.i = f; s.front = Math.max(s.front || 0, f); } render(); };
   const t = document.getElementById('toType');
   if (t) t.onclick = () => { stage = 'type'; session = buildSession(s.mode, s.mode === 'test' ? s.count : 30, 'type', s.cells); render(); window.scrollTo(0, 0); };
+  bindMusztra();
   document.getElementById('again').onclick = () => { stage = s.kind; session = null; render(); };
   document.getElementById('toStats').onclick = () => { statsKind = s.kind; session = null; document.querySelector('.tab[data-tab=stats]').click(); };
 }
@@ -1074,6 +1195,7 @@ function statsHTML() {
   </div>` : `<div class="card muted">Brak odpowiedzi na tym etapie. Rozwiąż kilka pytań, a tu pojawi się podsumowanie.</div>`}
   ${(stats.allK[statsKind] || []).length >= 3 ? trendChartHTML(stats.allK[statsKind].map(r => ({ ok: r.ok, raw: r })), 'Dynamika — wszystkie odpowiedzi', stats.allK[statsKind].length > 200 ? 25 : stats.allK[statsKind].length > 60 ? 20 : 10) : ''}
   ${caseTreeHTML(cells)}
+  ${musztraCardHTML(statsKind, 'stats')}
   ${planHTML('stats')}
   <details class="more"><summary>Więcej analizy</summary>${analysisHTML(statsKind) || '<div class="card muted">Na razie za mało błędów do analizy.</div>'}</details>
   ${reports.length ? `<details class="more" id="repDet" open><summary>Zapisane zgłoszenia (${reports.length})</summary>${reportsHTML()}</details>` : ''}
@@ -1322,6 +1444,7 @@ function exportText() {
   return lines.join('\n');
 }
 function bindStats() {
+  bindMusztra();
   bindSeg('statSw', k => { statsKind = k; errOpenC.clear(); errAll.clear(); });
   bindPlan(statsKind);
   const bd = document.getElementById('bkDown'); if (bd) bd.onclick = downloadBackup;

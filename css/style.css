@@ -325,3 +325,11 @@ details.errcase > summary .cnt { margin-left: auto; }
 .tscroll { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
 svg.trend text.tnum { font: 9px var(--sans); fill: var(--muted); text-anchor: middle; }
 a.linkbtn { width: fit-content; text-align: center; }
+
+/* Musztra */
+.dbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin: 10px 0 0; padding: 8px 12px; border-radius: var(--r-s); background: var(--pen-soft); font-size: 14px; }
+.dnote { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 0; padding: 10px 12px; border-radius: var(--r-s); border: 1px solid var(--line); background: var(--surface); font-size: 14.5px; }
+.dnote svg { flex: 0 0 auto; width: 22px; height: 22px; }
+.dnote.ok svg { color: var(--green); } .dnote.later svg { color: var(--amber); }
+.dlist { margin: 8px 0 4px; padding-left: 22px; }
+.dlist li { margin: 4px 0; } .dlist .cnt { margin-left: 6px; font-size: 13px; }
