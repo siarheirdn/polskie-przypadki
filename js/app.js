@@ -338,7 +338,7 @@ function startMusztra(kind) {
   if (!topics.length) return;
   let id; do { id = newId(); } while (progress[id]);
   const now = Date.now();
-  session = { id, mode: 'drill', kind, count: 0, title: 'Musztra', questions: [], i: 0, results: [], byQ: {}, front: 0, createdAt: now,
+  session = { id, mode: 'drill', kind, count: 0, title: 'Trening', questions: [], i: 0, results: [], byQ: {}, front: 0, createdAt: now,
     selAdj: null, selNoun: null, inAdj: '', inNoun: '',
     drill: { queue: topics.map(t => t.key), start: topics.map(t => Math.round(t.r * 100)), cur: 0, from: 0, round: 1, deferred: [], log: [], used: [], recent: { n: [], a: [] }, done: false, notice: null } };
   drillAppend(session); drillSave(session);
@@ -378,20 +378,20 @@ function drillBarHTML(s) {
 }
 function musztraCardHTML(kind, where) {
   const t = drillTopics(kind);
-  if (!t.length) return where !== 'finish' ? `<div class="card"><div class="lbl">Musztra</div><div class="muted">Nie ma tematów z ponad ${DR.IN * 100}% błędów — nie ma czego musztrować. Albo za mało odpowiedzi: zrób najpierw test.</div></div>` : '';
+  if (!t.length) return where !== 'finish' ? `<div class="card"><div class="lbl">Trening</div><div class="muted">Nie ma tematów z ponad ${DR.IN * 100}% błędów — nie ma czego ćwiczyć. Albo za mało odpowiedzi: zrób najpierw test.</div></div>` : '';
   return `<div class="card musztra">
-    <div class="lbl">Musztra: temat po temacie</div>
+    <div class="lbl">Trening: temat po temacie</div>
     <div class="muted">Pytania tylko z jednego tematu naraz, zaczynając od najsłabszego. Przejście dalej, gdy w ostatnich ${DR.WIN} pytaniach jest mniej niż ${DR.OUT * 100}% błędów (minimum ${DR.MIN} pytań).</div>
     <ol class="dlist">${t.map(x => `<li><b>${esc(topicName(x.key))}</b> <span class="cnt">${Math.round(x.r * 100)}% błędów</span></li>`).join('')}</ol>
-    <button class="big" data-musztra="${kind}">Zacznij musztrę (${kind === 'type' ? 'wpisywanie' : 'wybór'})</button>
+    <button class="big" data-musztra="${kind}">Zacznij trening (${kind === 'type' ? 'wpisywanie' : 'wybór'})</button>
   </div>`;
 }
 function drillTabHTML() {
   const open = Object.values(progress).filter(p => p.mode === 'drill' && !p.done).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
-  return `<h2 class="sub">Musztra</h2>
+  return `<h2 class="sub">Trening</h2>
   ${stageSwitch('drillSw', stage)}
-  ${open ? `<div class="card"><div class="lbl">Niedokończona musztra</div><div class="muted">${esc(open.id)} · ${(open.r || []).length} ${plural((open.r || []).length, 'odpowiedź', 'odpowiedzi', 'odpowiedzi')} · ${fmtDate(open.updatedAt)}</div>
-    <button class="big" id="drillCont">Kontynuuj musztrę</button></div>` : ''}
+  ${open ? `<div class="card"><div class="lbl">Niedokończony trening</div><div class="muted">${esc(open.id)} · ${(open.r || []).length} ${plural((open.r || []).length, 'odpowiedź', 'odpowiedzi', 'odpowiedzi')} · ${fmtDate(open.updatedAt)}</div>
+    <button class="big" id="drillCont">Kontynuuj trening</button></div>` : ''}
   ${musztraCardHTML(stage, 'tab')}`;
 }
 function bindDrillTab() {
@@ -404,9 +404,9 @@ function bindDrillTab() {
 function bindMusztra() { document.querySelectorAll('[data-musztra]').forEach(b => b.onclick = () => startMusztra(b.dataset.musztra)); }
 function drillSummaryHTML(s) {
   const D = s.drill;
-  return `<div class="card"><div class="lbl">Musztra — tematy</div><ul class="list">${D.log.map(l => `<li>${l.res === 'ok' ? '✓' : '✗'} <b>${esc(topicName(l.key))}</b>: ${l.n} ${plural(l.n, 'pytanie', 'pytania', 'pytań')}, w ostatnich 10 — ${l.err}% błędów${l.round === 2 ? ' (powtórka)' : ''}</li>`).join('')}
+  return `<div class="card"><div class="lbl">Trening — tematy</div><ul class="list">${D.log.map(l => `<li>${l.res === 'ok' ? '✓' : '✗'} <b>${esc(topicName(l.key))}</b>: ${l.n} ${plural(l.n, 'pytanie', 'pytania', 'pytań')}, w ostatnich 10 — ${l.err}% błędów${l.round === 2 ? ' (powtórka)' : ''}</li>`).join('')}
   ${D.done ? '' : `<li class="muted">W toku: ${esc(topicName(D.queue[D.cur]))}</li>`}</ul>
-  ${D.log.some(l => l.res === 'later' && l.round === 2) || D.log.filter(l => l.res === 'later').length ? `<div class="muted">Tematy z ✗ warto powtórzyć innego dnia — musztra po teście znowu je znajdzie.</div>` : ''}</div>`;
+  ${D.log.some(l => l.res === 'later' && l.round === 2) || D.log.filter(l => l.res === 'later').length ? `<div class="muted">Tematy z ✗ warto powtórzyć innego dnia — trening po teście znowu je znajdzie.</div>` : ''}</div>`;
 }
 
 function emptyAn() { return { hist: {}, rules: {}, types: {}, conf: {}, errs: 0, untyped: 0 }; }
@@ -831,7 +831,7 @@ function unfinishedHTML() {
     <div class="lbl">Niedokończone sesje (${list.length})</div>
     <div class="sessrow">
       <select id="sessSel" class="sesssel">
-        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${esc(p.title || kindName(p.kind))} · ${(p.r || []).length}${p.mode === 'drill' ? '' : ' z ' + p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
+        ${list.map(p => `<option value="${esc(p.id)}" ${p.id === selSess ? 'selected' : ''}>${esc(p.id)} · ${esc(p.mode === 'drill' ? 'Trening' : (p.title || kindName(p.kind)))} · ${(p.r || []).length}${p.mode === 'drill' ? '' : ' z ' + p.count} · ${fmtDate(p.updatedAt)}</option>`).join('')}
       </select>
       <button class="ibtn go" id="contBtn" title="Kontynuuj" aria-label="Kontynuuj">
         <svg viewBox="0 0 24 24" width="22" height="22"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
@@ -1010,7 +1010,7 @@ function questionHTML() {
   return `
   <div class="topbar">
     <button class="tbtn" id="quit" title="Zakończ — postęp jest zapisany" aria-label="Zakończ sesję">${ICON.close}</button>
-    <div class="tcenter"><div class="tpos">${s.drill ? 'Musztra · pytanie ' + (s.i + 1) : `Pytanie ${s.i + 1} z ${s.count}`}</div>
+    <div class="tcenter"><div class="tpos">${s.drill ? 'Trening · pytanie ' + (s.i + 1) : `Pytanie ${s.i + 1} z ${s.count}`}</div>
       <div class="progress"><div style="width:${s.drill ? Math.max(2, (Math.min(s.drill.cur, s.drill.queue.length) / s.drill.queue.length) * 100) : Math.max(2, (answered / s.count) * 100)}%"></div></div></div>
     <div class="tally"><div class="t-ok"><span>Dobrze</span><b>${correct}</b></div><div class="t-bad"><span>Źle</span><b>${answered - correct}</b></div></div>
     ${fszHTML()}
@@ -1137,7 +1137,7 @@ function finishHTML() {
   const nextCount = s.count;
   return `
   <div class="card">
-    <div class="lbl">${finished ? (s.drill ? 'Musztra zakończona' : 'Wynik') : (s.drill ? 'Musztra przerwana' : 'Sesja przerwana')} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
+    <div class="lbl">${finished ? (s.drill ? 'Trening zakończony' : 'Wynik') : (s.drill ? 'Trening przerwany' : 'Sesja przerwana')} · sesja <b class="sid">${esc(s.id)}</b> · ${s.kind === 'type' ? 'etap 2, wpisywanie' : 'etap 1, wybór'}</div>
     <div class="score">${ok} z ${r.length}</div>
     <div class="muted">${r.length ? Math.round(ok / r.length * 100) : 0}% dobrze. Błędy w przymiotnikach: ${r.filter(x => !x.adjOk).length}, w rzeczownikach: ${r.filter(x => !x.nounOk).length}.${dia ? ` W tym tylko w polskich znakach: ${dia}.` : ''}</div>
     ${finished ? '' : `<div style="margin-top:8px">Odpowiedziano na ${r.length}${s.drill ? '' : ' z ' + s.count}. Postęp jest zapisany — sesję <b class="sid">${esc(s.id)}</b> możesz dokończyć później z listy na ekranie startowym.</div>
@@ -1178,7 +1178,7 @@ function historyHTML() {
   if (!list.length) return '';
   return `<div class="card"><div class="lbl">Historia sesji</div>${list.map(p => {
     const r = p.r || [], ok = r.filter(x => x.ok).length;
-    return `<div class="sess"><div><b class="sid">${esc(p.id)}</b> · ${esc(p.title || kindName(p.kind))}<br><span class="muted">${fmtDate(p.updatedAt)}</span></div><div><b>${ok} z ${r.length}</b> <span class="muted">(${r.length ? Math.round(ok / r.length * 100) : 0}%)</span></div></div>`;
+    return `<div class="sess"><div><b class="sid">${esc(p.id)}</b> · ${esc(p.mode === 'drill' ? 'Trening' : (p.title || kindName(p.kind)))}<br><span class="muted">${fmtDate(p.updatedAt)}</span></div><div><b>${ok} z ${r.length}</b> <span class="muted">(${r.length ? Math.round(ok / r.length * 100) : 0}%)</span></div></div>`;
   }).join('')}</div>`;
 }
 function statsHTML() {
