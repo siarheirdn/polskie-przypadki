@@ -378,13 +378,28 @@ function drillBarHTML(s) {
 }
 function musztraCardHTML(kind, where) {
   const t = drillTopics(kind);
-  if (!t.length) return where === 'stats' ? `<div class="card"><div class="lbl">Musztra</div><div class="muted">Nie ma tematów z ponad ${DR.IN * 100}% błędów — nie ma czego musztrować. Albo za mało odpowiedzi: zrób najpierw test.</div></div>` : '';
+  if (!t.length) return where !== 'finish' ? `<div class="card"><div class="lbl">Musztra</div><div class="muted">Nie ma tematów z ponad ${DR.IN * 100}% błędów — nie ma czego musztrować. Albo za mało odpowiedzi: zrób najpierw test.</div></div>` : '';
   return `<div class="card musztra">
     <div class="lbl">Musztra: temat po temacie</div>
     <div class="muted">Pytania tylko z jednego tematu naraz, zaczynając od najsłabszego. Przejście dalej, gdy w ostatnich ${DR.WIN} pytaniach jest mniej niż ${DR.OUT * 100}% błędów (minimum ${DR.MIN} pytań).</div>
     <ol class="dlist">${t.map(x => `<li><b>${esc(topicName(x.key))}</b> <span class="cnt">${Math.round(x.r * 100)}% błędów</span></li>`).join('')}</ol>
     <button class="big" data-musztra="${kind}">Zacznij musztrę (${kind === 'type' ? 'wpisywanie' : 'wybór'})</button>
   </div>`;
+}
+function drillTabHTML() {
+  const open = Object.values(progress).filter(p => p.mode === 'drill' && !p.done).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+  return `<h2 class="sub">Musztra</h2>
+  ${stageSwitch('drillSw', stage)}
+  ${open ? `<div class="card"><div class="lbl">Niedokończona musztra</div><div class="muted">${esc(open.id)} · ${(open.r || []).length} ${plural((open.r || []).length, 'odpowiedź', 'odpowiedzi', 'odpowiedzi')} · ${fmtDate(open.updatedAt)}</div>
+    <button class="big" id="drillCont">Kontynuuj musztrę</button></div>` : ''}
+  ${musztraCardHTML(stage, 'tab')}`;
+}
+function bindDrillTab() {
+  bindSeg('drillSw', k => { stage = k; });
+  bindMusztra();
+  const c = document.getElementById('drillCont');
+  if (c) c.onclick = () => { const p = Object.values(progress).filter(p => p.mode === 'drill' && !p.done).sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+    tab = 'train'; document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.tab === 'train')); resumeSession(p.id); };
 }
 function bindMusztra() { document.querySelectorAll('[data-musztra]').forEach(b => b.onclick = () => startMusztra(b.dataset.musztra)); }
 function drillSummaryHTML(s) {
@@ -648,6 +663,7 @@ function renderView() {
   document.body.classList.remove('focus');
   if (!loaded) { v.innerHTML = '<div class="card muted">Wczytywanie…</div>'; return; }
   if (tab === 'stats') { v.innerHTML = statsHTML() + footer(); bindStats(); bindFsz(); return; }
+  if (tab === 'drill') { v.innerHTML = drillTabHTML() + footer(); bindDrillTab(); bindFsz(); return; }
   if (!session) { v.innerHTML = startHTML() + footer(); bindStart(); bindFsz(); return; }
   if (session.finished || session.paused) { v.innerHTML = finishHTML() + footer(); bindFinish(); bindFsz(); return; }
   document.body.classList.add('focus');
@@ -838,7 +854,6 @@ function startHTML() {
   return `
   ${introHTML()}
   ${unfinishedHTML()}
-  ${musztraCardHTML(stage, 'start')}
   ${planHTML('start')}
   <h2 class="sub">Nowa sesja</h2>
   ${stageSwitch('stageSw', stage)}
@@ -1195,7 +1210,6 @@ function statsHTML() {
   </div>` : `<div class="card muted">Brak odpowiedzi na tym etapie. Rozwiąż kilka pytań, a tu pojawi się podsumowanie.</div>`}
   ${(stats.allK[statsKind] || []).length >= 3 ? trendChartHTML(stats.allK[statsKind].map(r => ({ ok: r.ok, raw: r })), 'Dynamika — wszystkie odpowiedzi', stats.allK[statsKind].length > 200 ? 25 : stats.allK[statsKind].length > 60 ? 20 : 10) : ''}
   ${caseTreeHTML(cells)}
-  ${musztraCardHTML(statsKind, 'stats')}
   ${planHTML('stats')}
   <details class="more"><summary>Więcej analizy</summary>${analysisHTML(statsKind) || '<div class="card muted">Na razie za mało błędów do analizy.</div>'}</details>
   ${reports.length ? `<details class="more" id="repDet" open><summary>Zapisane zgłoszenia (${reports.length})</summary>${reportsHTML()}</details>` : ''}
