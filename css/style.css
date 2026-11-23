@@ -29,7 +29,7 @@ button, input, select { font-family: inherit; }
 /* Nagłówek i zakładki (ukryte podczas pytania) */
 h1 { font: 600 21px/1.2 var(--sans); margin: 2px 0 12px; letter-spacing: -0.01em; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .tabs { display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; margin-bottom: 18px; }
-.tab { flex: 1; padding: 9px 0; border: 0; border-radius: 9px; background: none; color: var(--muted); font-size: 15px; cursor: pointer; }
+.tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 0; border: 0; border-radius: 9px; background: none; color: var(--muted); font-size: 15px; cursor: pointer; }
 .tab.on { background: var(--surface-2); color: var(--ink); font-weight: 600; }
 body.focus h1, body.focus .tabs { display: none; }
 
@@ -333,3 +333,6 @@ a.linkbtn { width: fit-content; text-align: center; }
 .dnote.ok svg { color: var(--green); } .dnote.later svg { color: var(--amber); }
 .dlist { margin: 8px 0 4px; padding-left: 22px; }
 .dlist li { margin: 4px 0; } .dlist .cnt { margin-left: 6px; font-size: 13px; }
+
+.tab svg { flex: 0 0 auto; opacity: .85; } .tab.on svg { opacity: 1; color: var(--pen); }
+@media (max-width: 360px) { .tab { gap: 4px; font-size: 14px; } .tab svg { width: 16px; height: 16px; } }
